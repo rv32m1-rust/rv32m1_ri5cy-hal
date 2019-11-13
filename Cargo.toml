@@ -15,3 +15,8 @@ embedded-hal = { version = "^0.2.3", features = ["unproven"] }
 nb = "^0.1.2"
 riscv = "^0.5.4"
 rv32m1_ri5cy-pac = "^0.1.1"
+
+[lib]
+name = "rv32m1_ri5cy_hal"
+test = false
+bench = false

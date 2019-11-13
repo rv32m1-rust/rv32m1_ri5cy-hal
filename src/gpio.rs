@@ -1,4 +1,5 @@
-use rv32m1_ri5cy_pac as pac;
+use crate::pac;
+use core::marker::PhantomData;
 
 /// Extension trait to split a GPIO peripheral into independent pins and registers
 pub trait GpioExt {
@@ -9,11 +10,52 @@ pub trait GpioExt {
     fn split(self) -> Self::Parts;
 }
 
+/*
+    This chip supports BATCH modifications of port settings;
+    hal designs should take best use of this feature.
+    (luojia65)
+*/
+
 /// General-purpose input, for the GPIO function
-pub struct Input;
+pub struct Input<MODE> {
+    _typestate_mode: PhantomData<MODE>,
+}
 
 /// General-purpose output, for the GPIO function
-pub struct Output;
+pub struct Output<MODE> {
+    _typestate_mode: PhantomData<MODE>,
+}
+
+// PCRx::DSE, Drive Strength Enable
+// 0b&&output->low
+// 1b&&output->high
+// todo
+
+// PCRx::ODE, Open Drain Enable
+// 0b->disable, input->disable
+// 1b&&output->enable
+pub struct OpenDrain;
+
+// PCRx::SRE Slew Rate Enable
+// 0b&&output->fast
+// 1b&&output->slow
+
+// PCRx::PE Pull Enable = 1
+// PCRx::PS Pull Select = 1 (up), input
+pub struct PullUp;
+
+// PCRx::PE Pull Enable = 1
+// PCRx::PS Pull Select = 0 (down), input
+pub struct PullDown;
+
+// default Hi-Z state
+pub struct Floating;
+
+// this chip supports pin locking
+
+pub struct Locked;
+
+pub struct Unlocked;
 
 trait PeripheralAccess {
     fn peripheral() -> &'static pac::gpioa::RegisterBlock;
@@ -62,15 +104,15 @@ trait PeripheralAccess {
 }
 
 pub mod gpioa {
-    use rv32m1_ri5cy_pac as pac;
+    use crate::pac;
     use core::convert::Infallible;
+    use core::marker::PhantomData;
     use embedded_hal::digital::v2::{StatefulOutputPin, OutputPin, ToggleableOutputPin};
-    use super::{GpioExt, PeripheralAccess};
-    use core::any::Any;
-    use rv32m1_ri5cy_pac::flexio0::PIN;
+    use super::{GpioExt, PeripheralAccess, Unlocked, Locked, Floating};
+    // use crate::pac::flexio0::PIN;
 
     pub struct Parts {
-        pub p24: Pin24,
+        pub pta24: PTA24<Unlocked, Floating>,
     }
 
     impl PeripheralAccess for pac::GPIOA {
@@ -87,23 +129,41 @@ pub mod gpioa {
 
         fn split(self) -> Self::Parts {
             pac::GPIOA::set_dir_output(PIN_INDEX);
-            Parts { p24: Pin24 {} }
+            Parts { 
+                pta24: PTA24 { 
+                    _typestate_locked: PhantomData,
+                    _typestate_mode: PhantomData,
+                } 
+            }
         }
     }
 
-    pub struct Pin24;
+    pub struct PTA24<LOCKED, MODE> {
+        _typestate_locked: PhantomData<LOCKED>,
+        _typestate_mode: PhantomData<MODE>,
+    }
 
-    impl StatefulOutputPin for Pin24 {
+    impl<LOCKED, MODE> PTA24<LOCKED, MODE> {
+        // pub fn into_open_drain_output() ...
+    }
+
+    impl<MODE> PTA24<Unlocked, MODE> {
+        pub fn lock(self) -> PTA24<Locked, MODE> {
+            unimplemented!() // todo
+        }
+    }
+
+    impl<LOCKED, MODE> StatefulOutputPin for PTA24<LOCKED, MODE> {
         fn is_set_high(&self) -> Result<bool, Infallible> {
             Ok(pac::GPIOA::value(PIN_INDEX))
         }
 
         fn is_set_low(&self) -> Result<bool, Infallible> {
-            Ok(!self.is_set_high()?)
+            Ok(!pac::GPIOA::value(PIN_INDEX))
         }
     }
 
-    impl OutputPin for Pin24 {
+    impl<LOCKED, MODE> OutputPin for PTA24<LOCKED, MODE> {
         type Error = Infallible;
 
         fn set_low(&mut self) -> Result<(), Self::Error> {
@@ -117,7 +177,7 @@ pub mod gpioa {
         }
     }
 
-    impl ToggleableOutputPin for Pin24 {
+    impl<LOCKED, MODE> ToggleableOutputPin for PTA24<LOCKED, MODE> {
         type Error = Infallible;
 
         fn toggle(&mut self) -> Result<(), Self::Error> {
