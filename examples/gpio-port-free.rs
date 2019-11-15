@@ -11,8 +11,9 @@ fn main() -> ! {
     let gpioa = (cp.GPIOA, cp.PORTA).split(&mut pcc0.porta).unwrap();
     let mut pta24 = gpioa.pta24.into_push_pull_output();
     // do something with pta24
+    pta24.set_low().unwrap();
     // free gpioa parts
-    let (_GPIOA, _PORTA) = hal::gpio::gpioa::Parts { 
+    let (_gpioa, _porta) = hal::gpio::gpioa::Parts { 
         pta24: pta24.into_floating_input(),
     ..gpioa }.free(&mut pcc0.porta);
     loop {}
