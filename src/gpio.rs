@@ -1,3 +1,5 @@
+/// General Purpose I/Os
+
 use core::marker::PhantomData;
 
 /// Extension trait to split a GPIO peripheral into independent pins and registers
@@ -264,8 +266,19 @@ pub mod gpioa {
             Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PIN_MASK == 0) 
         }
     }
-}
 
+    impl InputPin for PTA24<Output<OpenDrain>> {
+        type Error = Infallible;
+
+        fn is_high(&self) -> Result<bool, Self::Error> {
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PIN_MASK != 0) 
+        }
+
+        fn is_low(&self) -> Result<bool, Self::Error> {
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PIN_MASK == 0) 
+        }
+    }
+}
 
 // todo: port[4]: pfe (passive filter enable)
 /*
