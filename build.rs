@@ -1,9 +1,7 @@
 use std::env;
-use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 
 const MISSING_CARGO_ENV: &'static str = "Missing environment variables provided by Cargo.";
 
