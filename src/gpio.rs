@@ -340,6 +340,17 @@ pub mod gpioa {
             });
         }
     }
+    
+    // // not all pins support passive filter
+    // impl<MODE> PTA24<Input<MODE>> {
+    //     /// Enable or disable passive filter for this pin.
+    //     pub fn set_passive_filter(&self, value: bool) {
+    //         unsafe { &*PORT_PTR }.pcr24.write(|w| match value {
+    //             false => w.pfe().clear_bit(),
+    //             true => w.pfe().set_bit(),
+    //         });
+    //     }
+    // }
 
     // // not all pins support drive strength config
     // impl<MODE> PTA24<Output<MODE>> {
