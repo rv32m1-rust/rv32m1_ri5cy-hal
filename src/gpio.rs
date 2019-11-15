@@ -20,21 +20,31 @@ pub trait GpioExt {
 /// Error that may occur when spliting port
 #[derive(Clone, Copy, Debug)]
 pub enum SplitError {
+    /// The port peripheral is not present on this device.
     Absent,
+    /// Peripheral is being used by another core.
     InUse,
 }
 
 /// Pin slew rate, valid in all digital pin muxing modes.
 #[derive(Clone, Copy, Debug)]
 pub enum SlewRate {
+    /// Fast slew rate is configured on the corresponding pin, 
+    /// if the pin is configured as a digital output.
     Fast,
+    /// Slow slew rate is configured on the corresponding pin, 
+    /// if the pin is configured as a digital output.
     Slow
 }
 
 /// Pin drive strength, valid in all digital pin muxing modes.
 #[derive(Clone, Copy, Debug)]
 pub enum DriveStrength {
+    /// Low drive strength is configured on the corresponding pin, 
+    /// if pin is configured as a digital output.
     Low,
+    /// High drive strength is configured on the corresponding pin, 
+    /// if pin is configured as a digital output.
     High,
 }
 
@@ -46,10 +56,10 @@ pub struct Input<MODE> {
 /// Hi-Z Floating input (type state)
 pub struct Floating;
 
-/// Pull up input (type state)
+/// Pull-up input (type state)
 pub struct PullUp;
 
-/// Pull down input (type state)
+/// Pull-down input (type state)
 pub struct PullDown;
 
 /// General-purpose output, for the GPIO function (type state)
@@ -57,20 +67,16 @@ pub struct Output<MODE> {
     _mode: PhantomData<MODE>,
 }
 
-// PCRx::DSE, Drive Strength Enable
-// 0b&&output->low
-// 1b&&output->high
-// todo
-
-/// Push pull output (type state)
+/// Push-pull output (type state)
 pub struct PushPull;
 
-/// Open drain output (type state)
+/// Open-drain output (type state)
 pub struct OpenDrain;
 
 /// Wraps a pin if its Pin Control Register (PCR) is locked 
 pub struct Locked<T>(T);
 
+// implement all digital input/output traits for locked pins
 mod impl_for_locked {
     use super::Locked;
     use embedded_hal::digital::v2::{OutputPin, StatefulOutputPin, ToggleableOutputPin, InputPin};
@@ -154,13 +160,21 @@ pub mod gpioa {
 
         fn split(self, pcc_port: &mut pcc::PORTA) -> Result<Self::Parts, SplitError> {
             interrupt::free(|_| {
+                // if the port is not absent on this device, throw an error
                 if !pcc_port.port().read().pr().is_pr_1() {
                     return Err(SplitError::Absent)
                 }
+                // if the port is being used by another core, throw an error.
+                // That means, software on another core has already configured the clocking 
+                // options of this peripheral.
+                // For example, if your CPU software is the first to occupy this peripheral,
+                // the INUSE bit would return 0, and settings to CGC bit would success. But
+                // if it's not your CPU first to occupy, the INUSE bit would return 1 meaning
+                // that this port is somehow locked by other CPUs.
                 if pcc_port.port().read().inuse().is_inuse_1() {
                     return Err(SplitError::InUse)
                 }
-                // Enable port clock
+                // enable port clock
                 pcc_port.port().write(|w| w.cgc().set_bit());
                 Ok(Parts { 
                     pta24: PTA24 { _mode: PhantomData }, 
@@ -169,7 +183,9 @@ pub mod gpioa {
         } 
     }
 
+    /// GPIO parts
     pub struct Parts {
+        /// Pin
         pub pta24: PTA24<Input<Floating>>,
     }
 
@@ -189,9 +205,9 @@ pub mod gpioa {
         /// ```
         pub fn free(self, pcc_port: &mut pcc::PORTA) -> (pac::GPIOA, pac::PORTA) {
             use core::mem::transmute;
-            // Release port clock
+            // release port clock
             pcc_port.port().write(|w| w.cgc().clear_bit());
-            // Return the ownership of GPIOA and PORTA
+            // return the ownership of GPIOA and PORTA
             unsafe { (transmute(()), transmute(())) }
         }
     }
@@ -262,11 +278,13 @@ pub mod gpioa {
 
     const PIN_MASK: u32 = 1 << PIN_INDEX;
 
+    /// Pin
     pub struct PTA24<MODE> {
         _mode: PhantomData<MODE>,
     }
 
     impl<MODE> PTA24<MODE> {
+        /// Configures the pin to operate as a push-pull output pin.
         pub fn into_push_pull_output(self) -> PTA24<Output<PushPull>> {
             interrupt::free(|_| unsafe {
                 (&*PORT_PTR).pcr24.write(|w| w.ode().clear_bit());
@@ -275,6 +293,7 @@ pub mod gpioa {
             PTA24 { _mode: PhantomData } 
         }
 
+        /// Configures the pin to operate as an open-drain output pin.
         pub fn into_open_drain_output(self) -> PTA24<Output<OpenDrain>> {
             interrupt::free(|_| unsafe {
                 (&*PORT_PTR).pcr24.write(|w| w.ode().set_bit());
@@ -283,6 +302,7 @@ pub mod gpioa {
             PTA24 { _mode: PhantomData } 
         }
 
+        /// Configures the pin to operate as a floating input pin.
         pub fn into_floating_input(self) -> PTA24<Input<Floating>> {
             interrupt::free(|_| unsafe {
                 (&*PORT_PTR).pcr24.write(|w| w.pe().clear_bit());
@@ -291,6 +311,7 @@ pub mod gpioa {
             PTA24 { _mode: PhantomData } 
         }
 
+        /// Configures the pin to operate as a pull-up input pin.
         pub fn into_pull_up_input(self) -> PTA24<Input<PullUp>> {
             interrupt::free(|_| unsafe {
                 (&*PORT_PTR).pcr24.write(|w| w.ps().set_bit().pe().set_bit());
@@ -299,6 +320,7 @@ pub mod gpioa {
             PTA24 { _mode: PhantomData } 
         }
 
+        /// Configures the pin to operate as a pull-down input pin.
         pub fn into_pull_down_input(self) -> PTA24<Input<PullDown>> {
             interrupt::free(|_| unsafe {
                 (&*PORT_PTR).pcr24.write(|w| w.ps().clear_bit().pe().set_bit());
@@ -309,6 +331,7 @@ pub mod gpioa {
     }
 
     impl<MODE> PTA24<Output<MODE>> {
+        /// 
         pub fn set_slew_rate(&self, value: SlewRate) {
             unsafe { &*PORT_PTR }.pcr24.write(|w| match value {
                 SlewRate::Fast => w.sre().clear_bit(),
@@ -341,6 +364,15 @@ pub mod gpioa {
     }
 
     impl<MODE> PTA24<MODE> {
+        /// Lock this pin to deny any further mode updates until next system reset.
+        /// 
+        /// This operation would lock the pin's Pin Control Register (PCR), which controls
+        /// pin's internal pulls, open drain enables. The pin mode may still be changed, but
+        /// only between given one output mode and one input mode specified by the PCR. 
+        /// 
+        /// We have not provided a function to switch between input and output after locked,
+        /// and this is considered as a limit of this library. If you have any good idea, 
+        /// please fire an issue to tell us. 
         pub fn lock(self) -> Locked<PTA24<MODE>> {
             unsafe { &*PORT_PTR }.pcr0.write(|w| w.lk().set_bit());
             Locked(self)
