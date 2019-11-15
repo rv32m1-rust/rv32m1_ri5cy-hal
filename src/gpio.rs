@@ -163,7 +163,14 @@ pub mod gpioxa {
         pub pta24: PTA24<Floating>,
     }
 
-    
+    // // when `Parts` is collected and dropped, this port is released and maybe could be used
+    // // by another core
+    // impl Drop for Parts {
+    //     fn drop(&mut self) {
+    //         // todo: DISABLE PCC REGISTERS
+    //     }
+    // }
+
     /// Partially erased pin
     pub struct PTAx<MODE> {
         i: u8,
