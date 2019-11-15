@@ -1,4 +1,3 @@
-use crate::pac;
 use core::marker::PhantomData;
 
 /// Extension trait to split a GPIO peripheral into independent pins and registers
@@ -10,18 +9,41 @@ pub trait GpioExt {
     fn split(self) -> Self::Parts;
 }
 
-/*
-    This chip supports BATCH modifications of port settings;
-    hal designs should take best use of this feature.
-    (luojia65)
-*/
+/// Pin control register (PCR) is locked (type state)
+pub struct Locked;
 
-/// General-purpose input, for the GPIO function
+/// Pin control register (PCR) is not locked (type state)
+pub struct Unlocked;
+
+/// Pin slew rate, valid in all digital pin muxing modes.
+#[derive(Clone, Copy, Debug)]
+pub enum SlewRate {
+    Fast,
+    Slow
+}
+
+/// Pin drive strength, valid in all digital pin muxing modes.
+#[derive(Clone, Copy, Debug)]
+pub enum DriveStrength {
+    Low,
+    High,
+}
+
+/// General-purpose input, for the GPIO function (type state)
 pub struct Input<MODE> {
     _typestate_mode: PhantomData<MODE>,
 }
 
-/// General-purpose output, for the GPIO function
+/// Hi-Z Floating input (type state)
+pub struct Floating;
+
+/// Pull up input (type state)
+pub struct PullUp;
+
+/// Pull down input (type state)
+pub struct PullDown;
+
+/// General-purpose output, for the GPIO function (type state)
 pub struct Output<MODE> {
     _typestate_mode: PhantomData<MODE>,
 }
@@ -31,104 +53,31 @@ pub struct Output<MODE> {
 // 1b&&output->high
 // todo
 
-// PCRx::ODE, Open Drain Enable
-// 0b->disable, input->disable
-// 1b&&output->enable
+/// Push pull output (type state)
+pub struct PushPull;
+
+/// Open drain output (type state)
 pub struct OpenDrain;
-
-// PCRx::SRE Slew Rate Enable
-// 0b&&output->fast
-// 1b&&output->slow
-
-// PCRx::PE Pull Enable = 1
-// PCRx::PS Pull Select = 1 (up), input
-pub struct PullUp;
-
-// PCRx::PE Pull Enable = 1
-// PCRx::PS Pull Select = 0 (down), input
-pub struct PullDown;
-
-// default Hi-Z state
-pub struct Floating;
-
-// this chip supports pin locking
-
-pub struct Locked;
-
-pub struct Unlocked;
-
-trait PeripheralAccess {
-    fn peripheral() -> &'static pac::gpioa::RegisterBlock;
-
-    /// Set port data direction to input with PDDR register
-    fn set_dir_input(index: usize) {
-        let p = Self::peripheral();
-        let mask = (1 << (index & 31)) as u32;
-        p.pddr.modify(|r, w| unsafe {
-            w.pdd().bits(r.pdd().bits() & !mask)
-        });
-    }
-
-    /// Set port data direction to output with PDDR register
-    fn set_dir_output(index: usize) {
-        let p = Self::peripheral();
-        let mask = (1 << (index & 31)) as u32;
-        p.pddr.modify(|r, w| unsafe {
-            w.pdd().bits(r.pdd().bits() | mask)
-        });
-    }
-
-    /// Read port data with PDIR register
-    fn value(index: usize) -> bool {
-        let p = Self::peripheral();
-        (p.pdir.read().bits() >> ((index & 31) as u32)) != 0
-    }
-
-    /// Set output with PSOR/PCOR register
-    fn set_output(index: usize, bit: bool) {
-        let p = Self::peripheral();
-        let mask = (1 << (index & 31)) as u32;
-        if bit {
-            p.psor.write(|w| unsafe { w.ptso().bits(mask) });
-        } else {
-            p.pcor.write(|w| unsafe { w.ptco().bits(mask) });
-        }
-    }
-
-    /// Toggle output with PTOR register
-    fn toggle_output(index: usize) {
-        let p = Self::peripheral();
-        let mask = (1 << (index & 31)) as u32;
-        p.ptor.write(|w| unsafe { w.ptto().bits(mask) });
-    }
-}
 
 pub mod gpioa {
     use crate::pac;
-    use core::convert::Infallible;
-    use core::marker::PhantomData;
+    use core::{convert::Infallible, marker::PhantomData};
+    use super::{
+        GpioExt, Unlocked, Locked, Output, OpenDrain, PushPull, Input, Floating,
+        PullUp, PullDown, SlewRate
+    };
+    // use super::DriveStrength;
     use embedded_hal::digital::v2::{StatefulOutputPin, OutputPin, ToggleableOutputPin};
-    use super::{GpioExt, PeripheralAccess, Unlocked, Locked, Floating};
-    // use crate::pac::flexio0::PIN;
+    use riscv::interrupt;
 
-    pub struct Parts {
-        pub pta24: PTA24<Unlocked, Floating>,
-    }
+    const GPIO_PTR: *const pac::gpioa::RegisterBlock = pac::GPIOA::ptr();
 
-    impl PeripheralAccess for pac::GPIOA {
-        #[inline(always)]
-        fn peripheral() -> &'static pac::gpioa::RegisterBlock {
-            unsafe { &*pac::GPIOA::ptr() }
-        }
-    }
-
-    const PIN_INDEX: usize = 24;
+    const PORT_PTR: *const pac::porta::RegisterBlock = pac::PORTA::ptr();
 
     impl GpioExt for pac::GPIOA {
         type Parts = Parts;
 
         fn split(self) -> Self::Parts {
-            pac::GPIOA::set_dir_output(PIN_INDEX);
             Parts { 
                 pta24: PTA24 { 
                     _typestate_locked: PhantomData,
@@ -138,28 +87,102 @@ pub mod gpioa {
         }
     }
 
+    pub struct Parts {
+        pub pta24: PTA24<Unlocked, Floating>,
+    }
+
+    const PIN_INDEX: usize = 24;
+
+    const PIN_MASK: u32 = 1 << PIN_INDEX;
+
     pub struct PTA24<LOCKED, MODE> {
         _typestate_locked: PhantomData<LOCKED>,
         _typestate_mode: PhantomData<MODE>,
     }
 
     impl<LOCKED, MODE> PTA24<LOCKED, MODE> {
-        // pub fn into_open_drain_output() ...
+        pub fn into_push_pull_output(self) -> PTA24<LOCKED, Output<PushPull>> {
+            interrupt::free(|_| unsafe {
+                (&*PORT_PTR).pcr24.write(|w| w.ode().clear_bit());
+                (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() | PIN_MASK));
+            });
+            PTA24 { 
+                _typestate_locked: PhantomData,
+                _typestate_mode: PhantomData,
+            } 
+        }
+
+        pub fn into_open_drain_output(self) -> PTA24<LOCKED, Output<OpenDrain>> {
+            interrupt::free(|_| unsafe {
+                (&*PORT_PTR).pcr24.write(|w| w.ode().set_bit());
+                (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() | PIN_MASK));
+            });
+            PTA24 { 
+                _typestate_locked: PhantomData,
+                _typestate_mode: PhantomData,
+            }
+        }
+
+        pub fn into_floating_input(self) -> PTA24<LOCKED, Input<Floating>> {
+            interrupt::free(|_| unsafe {
+                (&*PORT_PTR).pcr24.write(|w| w.pe().clear_bit());
+                (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !PIN_MASK));
+            });
+            PTA24 { 
+                _typestate_locked: PhantomData,
+                _typestate_mode: PhantomData,
+            }
+        }
+
+        pub fn into_pull_up_input(self) -> PTA24<LOCKED, Input<PullUp>> {
+            interrupt::free(|_| unsafe {
+                (&*PORT_PTR).pcr24.write(|w| w.ps().set_bit().pe().set_bit());
+                (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !PIN_MASK));
+            });
+            PTA24 { 
+                _typestate_locked: PhantomData,
+                _typestate_mode: PhantomData,
+            }
+        }
+
+        pub fn into_pull_down_input(self) -> PTA24<LOCKED, Input<PullDown>> {
+            interrupt::free(|_| unsafe {
+                (&*PORT_PTR).pcr24.write(|w| w.ps().clear_bit().pe().set_bit());
+                (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !PIN_MASK));
+            });
+            PTA24 { 
+                _typestate_locked: PhantomData,
+                _typestate_mode: PhantomData,
+            }
+        }
     }
+
+    impl<LOCKED, MODE> PTA24<LOCKED, Output<MODE>> {
+        pub fn set_slew_rate(&self, value: SlewRate) {
+            unsafe { &*PORT_PTR }.pcr24.write(|w| match value {
+                SlewRate::Fast => w.sre().clear_bit(),
+                SlewRate::Slow => w.sre().set_bit(),
+            });
+        }
+    }
+
+    // // not all pins support drive strength config
+    // impl<LOCKED, MODE> PTA24<LOCKED, Output<MODE>> {
+    //     pub fn set_drive_strength(&self, value: DriveStrength) {
+    //         unsafe { &*PORT_PTR }.pcr24.write(|w| match value {
+    //             DriveStrength::Low => w.dse().clear_bit(),
+    //             DriveStrength::High => w.dse().set_bit(),
+    //         });
+    //     }
+    // }
 
     impl<MODE> PTA24<Unlocked, MODE> {
         pub fn lock(self) -> PTA24<Locked, MODE> {
-            unimplemented!() // todo
-        }
-    }
-
-    impl<LOCKED, MODE> StatefulOutputPin for PTA24<LOCKED, MODE> {
-        fn is_set_high(&self) -> Result<bool, Infallible> {
-            Ok(pac::GPIOA::value(PIN_INDEX))
-        }
-
-        fn is_set_low(&self) -> Result<bool, Infallible> {
-            Ok(!pac::GPIOA::value(PIN_INDEX))
+            unsafe { &*PORT_PTR }.pcr0.write(|w| w.lk().set_bit());
+            PTA24 { 
+                _typestate_locked: PhantomData,
+                _typestate_mode: PhantomData,
+            } 
         }
     }
 
@@ -167,13 +190,23 @@ pub mod gpioa {
         type Error = Infallible;
 
         fn set_low(&mut self) -> Result<(), Self::Error> {
-            pac::GPIOA::set_output(PIN_INDEX, false);
+            unsafe { &*GPIO_PTR }.pcor.write(|w| unsafe { w.ptco().bits(PIN_MASK) });
             Ok(())
         }
 
         fn set_high(&mut self) -> Result<(), Self::Error> {
-            pac::GPIOA::set_output(PIN_INDEX, true);
+            unsafe { &*GPIO_PTR }.psor.write(|w| unsafe { w.ptso().bits(PIN_MASK) });
             Ok(())
+        }
+    }
+
+    impl<LOCKED, MODE> StatefulOutputPin for PTA24<LOCKED, MODE> {
+        fn is_set_high(&self) -> Result<bool, Infallible> {
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PIN_MASK != 0)
+        }
+
+        fn is_set_low(&self) -> Result<bool, Infallible> {
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PIN_MASK == 0)
         }
     }
 
@@ -181,8 +214,22 @@ pub mod gpioa {
         type Error = Infallible;
 
         fn toggle(&mut self) -> Result<(), Self::Error> {
-            pac::GPIOA::toggle_output(PIN_INDEX);
+            unsafe { &*GPIO_PTR }.ptor.write(|w| unsafe { w.ptto().bits(PIN_MASK) });
             Ok(())
         }
     }
 }
+
+
+// todo: port[4]: pfe (passive filter enable)
+/*
+    todo: there is a design bug. after pin locking, the input/output
+    state can still be changed, (but mode of input and output cannot)
+    e.g. set a pin to Input<Floating> and Output<OpenDrain>, after locked
+    we switch between two, but cannot change it into Input<PullUp> etc.
+*/
+/*
+    This chip supports BATCH modifications of port settings;
+    hal designs should take best use of this feature.
+    (luojia65)
+*/
