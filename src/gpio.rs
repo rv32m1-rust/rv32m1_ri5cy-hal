@@ -132,7 +132,7 @@ mod impl_for_locked {
 
 // macro_rules! gpio {
 //     ($gpiox: ident) => {
-pub mod gpioxa {
+pub mod gpioa {
     use crate::pac;
     use core::{convert::Infallible, marker::PhantomData};
     use super::{
@@ -154,22 +154,35 @@ pub mod gpioxa {
         fn split(self) -> Result<Self::Parts, SplitError> {
             // todo: ENABLE PCC REGISTERS
             Ok(Parts { 
-                pta24: PTA24 { _mode: PhantomData, } 
+                pta24: PTA24 { _mode: PhantomData }, 
             })
-        }
+        } 
     }
 
     pub struct Parts {
-        pub pta24: PTA24<Floating>,
+        pub pta24: PTA24<Input<Floating>>,
     }
 
-    // // when `Parts` is collected and dropped, this port is released and maybe could be used
-    // // by another core
-    // impl Drop for Parts {
-    //     fn drop(&mut self) {
-    //         // todo: DISABLE PCC REGISTERS
-    //     }
-    // }
+    impl Parts {
+        /// Free the `Parts` so the port is released and maybe could be used by another core.
+        /// 
+        /// Users may use this function like:
+        /// ```
+        /// let pta0 = gpioa.pta0.into_push_pull_output(); 
+        /// let pta24 = gpioa.pta24.into_push_pull_output(); 
+        /// // code that uses pin pta0 and pta24 etc. 
+        /// // switch the port mode back before free operation. 
+        /// Parts { 
+        ///     pta0: pta0.into_floating_input(), 
+        ///     pta24: pta24.into_floating_input(), 
+        /// ..parts }.free(); // free this port
+        /// ```
+        pub fn free(self) -> (pac::GPIOA, pac::PORTA) {
+            use core::mem::transmute;
+            // todo: DISABLE PCC REGISTERS
+            unsafe { (transmute(()), transmute(())) }
+        }
+    }
 
     /// Partially erased pin
     pub struct PTAx<MODE> {
@@ -300,6 +313,7 @@ pub mod gpioxa {
     //             DriveStrength::High => w.dse().set_bit(),
     //         });
     //     }
+
     // }
     impl<MODE> PTA24<MODE> {
         /// Erases the pin number from the type
