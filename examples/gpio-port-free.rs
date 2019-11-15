@@ -7,11 +7,13 @@ use rv32m1_ri5cy_hal::{self as hal, prelude::*, pac};
 #[riscv_rt::entry]
 fn main() -> ! {
     let cp = pac::Peripherals::take().unwrap();
-    let gpioa = (cp.GPIOA, cp.PORTA).split().unwrap();
+    let mut pcc0 = cp.PCC0.constrain();
+    let gpioa = (cp.GPIOA, cp.PORTA).split(&mut pcc0.porta).unwrap();
     let mut pta24 = gpioa.pta24.into_push_pull_output();
-    pta24.set_low().unwrap();
+    // do something with pta24
+    // free gpioa parts
     let (_GPIOA, _PORTA) = hal::gpio::gpioa::Parts { 
         pta24: pta24.into_floating_input(),
-    ..gpioa }.free();
+    ..gpioa }.free(&mut pcc0.porta);
     loop {}
 }

@@ -1,11 +1,11 @@
-/// General Purpose I/Os
+//! General-Purpose Input/Output (GPIO)
 
 use core::marker::PhantomData;
 
 /// Extension trait to split a GPIO peripheral into independent pins and registers
 pub trait GpioExt {
-    // /// The port clock controller that controls this port
-    // type Clock;
+    /// The port clock controller that controls this port
+    type Clock;
 
     /// The type to split the GPIO into
     type Parts;
@@ -14,7 +14,7 @@ pub trait GpioExt {
     /// 
     /// It's possible to have errors because this GPIO peripheral may be in use 
     /// by another core, or the peripheral is absent on this device.
-    fn split(self/*, pcc: &mut Self::Clock*/) -> Result<Self::Parts, SplitError>;
+    fn split(self, pcc_port: &mut Self::Clock) -> Result<Self::Parts, SplitError>;
 }
 
 /// Error that may occur when spliting port
@@ -133,7 +133,7 @@ mod impl_for_locked {
 // macro_rules! gpio {
 //     ($gpiox: ident) => {
 pub mod gpioa {
-    use crate::pac;
+    use crate::{pac, pcc};
     use core::{convert::Infallible, marker::PhantomData};
     use super::{
         GpioExt, SplitError, Locked, Output, OpenDrain, PushPull, Input, Floating,
@@ -148,13 +148,23 @@ pub mod gpioa {
     const PORT_PTR: *const pac::porta::RegisterBlock = pac::PORTA::ptr();
 
     impl GpioExt for (pac::GPIOA, pac::PORTA) {
-        // type Clock = 
+        type Clock = pcc::PORTA;
+
         type Parts = Parts;
 
-        fn split(self) -> Result<Self::Parts, SplitError> {
-            // todo: ENABLE PCC REGISTERS
-            Ok(Parts { 
-                pta24: PTA24 { _mode: PhantomData }, 
+        fn split(self, pcc_port: &mut pcc::PORTA) -> Result<Self::Parts, SplitError> {
+            interrupt::free(|_| {
+                if !pcc_port.port().read().pr().is_pr_1() {
+                    return Err(SplitError::Absent)
+                }
+                if pcc_port.port().read().inuse().is_inuse_1() {
+                    return Err(SplitError::InUse)
+                }
+                // Enable port clock
+                pcc_port.port().write(|w| w.cgc().set_bit());
+                Ok(Parts { 
+                    pta24: PTA24 { _mode: PhantomData }, 
+                })
             })
         } 
     }
@@ -177,9 +187,11 @@ pub mod gpioa {
         ///     pta24: pta24.into_floating_input(), 
         /// ..parts }.free(); // free this port
         /// ```
-        pub fn free(self) -> (pac::GPIOA, pac::PORTA) {
+        pub fn free(self, pcc_port: &mut pcc::PORTA) -> (pac::GPIOA, pac::PORTA) {
             use core::mem::transmute;
-            // todo: DISABLE PCC REGISTERS
+            // Release port clock
+            pcc_port.port().write(|w| w.cgc().clear_bit());
+            // Return the ownership of GPIOA and PORTA
             unsafe { (transmute(()), transmute(())) }
         }
     }

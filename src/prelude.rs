@@ -5,3 +5,4 @@ pub use embedded_hal::digital::v2::{
     ToggleableOutputPin as _embedded_hal_digital_v2_ToggleableOutputPin,
 };
 pub use crate::gpio::GpioExt as _rv32m1_ri5cy_hal_gpio_GpioExt;
+pub use crate::pcc::PccExt as _rv32m1_ri5cy_hal_pcc_PccExt;
