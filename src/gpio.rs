@@ -137,7 +137,8 @@ mod impl_for_locked {
 }
 
 // macro_rules! gpio {
-//     ($gpiox: ident) => {
+//     ($gpiox: ident) => {    
+/// GPIO
 pub mod gpioa {
     use crate::{pac, pcc};
     use core::{convert::Infallible, marker::PhantomData};
@@ -190,7 +191,7 @@ pub mod gpioa {
     }
 
     impl Parts {
-        /// Free the `Parts` so the port is released and maybe could be used by another core.
+        /// Free and release the port taken so it could be used by another core.
         /// 
         /// Users may use this function like:
         /// ```
@@ -331,7 +332,7 @@ pub mod gpioa {
     }
 
     impl<MODE> PTA24<Output<MODE>> {
-        /// 
+        /// Change the pin's slew rate.
         pub fn set_slew_rate(&self, value: SlewRate) {
             unsafe { &*PORT_PTR }.pcr24.write(|w| match value {
                 SlewRate::Fast => w.sre().clear_bit(),
@@ -366,13 +367,18 @@ pub mod gpioa {
     impl<MODE> PTA24<MODE> {
         /// Lock this pin to deny any further mode updates until next system reset.
         /// 
+        /// After this operation, you are still allowed to change the output state or read
+        /// from input state. However, it locks the pin mode so you cannot change pin mode
+        /// anymore before system reset. 
+        /// 
         /// This operation would lock the pin's Pin Control Register (PCR), which controls
         /// pin's internal pulls, open drain enables. The pin mode may still be changed, but
         /// only between given one output mode and one input mode specified by the PCR. 
-        /// 
         /// We have not provided a function to switch between input and output after locked,
         /// and this is considered as a limit of this library. If you have any good idea, 
-        /// please fire an issue to tell us. 
+        /// please [fire an issue] to tell us. 
+        /// 
+        /// [fire an issue]: https://github.com/rv32m1-rust/rv32m1_ri5cy-hal/issues/new
         pub fn lock(self) -> Locked<PTA24<MODE>> {
             unsafe { &*PORT_PTR }.pcr0.write(|w| w.lk().set_bit());
             Locked(self)
