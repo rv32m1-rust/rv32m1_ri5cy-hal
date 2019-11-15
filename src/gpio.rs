@@ -9,12 +9,6 @@ pub trait GpioExt {
     fn split(self) -> Self::Parts;
 }
 
-/// Pin control register (PCR) is locked (type state)
-pub struct Locked;
-
-/// Pin control register (PCR) is not locked (type state)
-pub struct Unlocked;
-
 /// Pin slew rate, valid in all digital pin muxing modes.
 #[derive(Clone, Copy, Debug)]
 pub enum SlewRate {
@@ -31,7 +25,7 @@ pub enum DriveStrength {
 
 /// General-purpose input, for the GPIO function (type state)
 pub struct Input<MODE> {
-    _typestate_mode: PhantomData<MODE>,
+    _mode: PhantomData<MODE>,
 }
 
 /// Hi-Z Floating input (type state)
@@ -45,7 +39,7 @@ pub struct PullDown;
 
 /// General-purpose output, for the GPIO function (type state)
 pub struct Output<MODE> {
-    _typestate_mode: PhantomData<MODE>,
+    _mode: PhantomData<MODE>,
 }
 
 // PCRx::DSE, Drive Strength Enable
@@ -59,105 +53,148 @@ pub struct PushPull;
 /// Open drain output (type state)
 pub struct OpenDrain;
 
+/// Wraps a pin if its Pin Control Register (PCR) is locked 
+pub struct Locked<T>(T);
+
+mod impl_for_locked {
+    use super::Locked;
+    use embedded_hal::digital::v2::{OutputPin, StatefulOutputPin, ToggleableOutputPin, InputPin};
+
+    impl<T> OutputPin for Locked<T> 
+    where 
+        T: OutputPin 
+    {
+        type Error = T::Error;
+
+        fn set_low(&mut self) -> Result<(), Self::Error> {
+            self.0.set_low()
+        }
+
+        fn set_high(&mut self) -> Result<(), Self::Error> {
+            self.0.set_high()
+        }
+    }    
+    
+    impl<T> StatefulOutputPin for Locked<T> 
+    where 
+        T: StatefulOutputPin 
+    {
+        fn is_set_high(&self) -> Result<bool, Self::Error> {
+            self.0.is_set_high()
+        }
+
+        fn is_set_low(&self) -> Result<bool, Self::Error> {
+            self.0.is_set_low()
+        }
+    }
+
+    impl<T> ToggleableOutputPin for Locked<T> 
+    where 
+        T: ToggleableOutputPin 
+    {
+        type Error = T::Error;
+    
+        fn toggle(&mut self) -> Result<(), Self::Error> {
+            self.0.toggle()
+        }
+    }
+    
+    impl<T> InputPin for Locked<T> 
+    where 
+        T: InputPin 
+    {   
+        type Error = T::Error;
+    
+        fn is_high(&self) -> Result<bool, Self::Error> {
+            self.0.is_high()
+        }
+    
+        fn is_low(&self) -> Result<bool, Self::Error> {
+            self.0.is_low()
+        }
+    }
+}
+
 pub mod gpioa {
     use crate::pac;
     use core::{convert::Infallible, marker::PhantomData};
     use super::{
-        GpioExt, Unlocked, Locked, Output, OpenDrain, PushPull, Input, Floating,
+        GpioExt, Locked, Output, OpenDrain, PushPull, Input, Floating,
         PullUp, PullDown, SlewRate
     };
     // use super::DriveStrength;
-    use embedded_hal::digital::v2::{StatefulOutputPin, OutputPin, ToggleableOutputPin};
+    use embedded_hal::digital::v2::{OutputPin, StatefulOutputPin, ToggleableOutputPin, InputPin};
     use riscv::interrupt;
 
     const GPIO_PTR: *const pac::gpioa::RegisterBlock = pac::GPIOA::ptr();
 
     const PORT_PTR: *const pac::porta::RegisterBlock = pac::PORTA::ptr();
 
-    impl GpioExt for pac::GPIOA {
+    impl GpioExt for (pac::GPIOA, pac::PORTA) {
         type Parts = Parts;
 
         fn split(self) -> Self::Parts {
             Parts { 
-                pta24: PTA24 { 
-                    _typestate_locked: PhantomData,
-                    _typestate_mode: PhantomData,
-                } 
+                pta24: PTA24 { _mode: PhantomData, } 
             }
         }
     }
 
     pub struct Parts {
-        pub pta24: PTA24<Unlocked, Floating>,
+        pub pta24: PTA24<Floating>,
     }
 
     const PIN_INDEX: usize = 24;
 
     const PIN_MASK: u32 = 1 << PIN_INDEX;
 
-    pub struct PTA24<LOCKED, MODE> {
-        _typestate_locked: PhantomData<LOCKED>,
-        _typestate_mode: PhantomData<MODE>,
+    pub struct PTA24<MODE> {
+        _mode: PhantomData<MODE>,
     }
 
-    impl<LOCKED, MODE> PTA24<LOCKED, MODE> {
-        pub fn into_push_pull_output(self) -> PTA24<LOCKED, Output<PushPull>> {
+    impl<MODE> PTA24<MODE> {
+        pub fn into_push_pull_output(self) -> PTA24<Output<PushPull>> {
             interrupt::free(|_| unsafe {
                 (&*PORT_PTR).pcr24.write(|w| w.ode().clear_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() | PIN_MASK));
             });
-            PTA24 { 
-                _typestate_locked: PhantomData,
-                _typestate_mode: PhantomData,
-            } 
+            PTA24 { _mode: PhantomData } 
         }
 
-        pub fn into_open_drain_output(self) -> PTA24<LOCKED, Output<OpenDrain>> {
+        pub fn into_open_drain_output(self) -> PTA24<Output<OpenDrain>> {
             interrupt::free(|_| unsafe {
                 (&*PORT_PTR).pcr24.write(|w| w.ode().set_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() | PIN_MASK));
             });
-            PTA24 { 
-                _typestate_locked: PhantomData,
-                _typestate_mode: PhantomData,
-            }
+            PTA24 { _mode: PhantomData } 
         }
 
-        pub fn into_floating_input(self) -> PTA24<LOCKED, Input<Floating>> {
+        pub fn into_floating_input(self) -> PTA24<Input<Floating>> {
             interrupt::free(|_| unsafe {
                 (&*PORT_PTR).pcr24.write(|w| w.pe().clear_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !PIN_MASK));
             });
-            PTA24 { 
-                _typestate_locked: PhantomData,
-                _typestate_mode: PhantomData,
-            }
+            PTA24 { _mode: PhantomData } 
         }
 
-        pub fn into_pull_up_input(self) -> PTA24<LOCKED, Input<PullUp>> {
+        pub fn into_pull_up_input(self) -> PTA24<Input<PullUp>> {
             interrupt::free(|_| unsafe {
                 (&*PORT_PTR).pcr24.write(|w| w.ps().set_bit().pe().set_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !PIN_MASK));
             });
-            PTA24 { 
-                _typestate_locked: PhantomData,
-                _typestate_mode: PhantomData,
-            }
+            PTA24 { _mode: PhantomData } 
         }
 
-        pub fn into_pull_down_input(self) -> PTA24<LOCKED, Input<PullDown>> {
+        pub fn into_pull_down_input(self) -> PTA24<Input<PullDown>> {
             interrupt::free(|_| unsafe {
                 (&*PORT_PTR).pcr24.write(|w| w.ps().clear_bit().pe().set_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !PIN_MASK));
             });
-            PTA24 { 
-                _typestate_locked: PhantomData,
-                _typestate_mode: PhantomData,
-            }
+            PTA24 { _mode: PhantomData } 
         }
     }
 
-    impl<LOCKED, MODE> PTA24<LOCKED, Output<MODE>> {
+    impl<MODE> PTA24<Output<MODE>> {
         pub fn set_slew_rate(&self, value: SlewRate) {
             unsafe { &*PORT_PTR }.pcr24.write(|w| match value {
                 SlewRate::Fast => w.sre().clear_bit(),
@@ -167,7 +204,7 @@ pub mod gpioa {
     }
 
     // // not all pins support drive strength config
-    // impl<LOCKED, MODE> PTA24<LOCKED, Output<MODE>> {
+    // impl<MODE> PTA24<Output<MODE>> {
     //     pub fn set_drive_strength(&self, value: DriveStrength) {
     //         unsafe { &*PORT_PTR }.pcr24.write(|w| match value {
     //             DriveStrength::Low => w.dse().clear_bit(),
@@ -176,17 +213,14 @@ pub mod gpioa {
     //     }
     // }
 
-    impl<MODE> PTA24<Unlocked, MODE> {
-        pub fn lock(self) -> PTA24<Locked, MODE> {
+    impl<MODE> PTA24<MODE> {
+        pub fn lock(self) -> Locked<PTA24<MODE>> {
             unsafe { &*PORT_PTR }.pcr0.write(|w| w.lk().set_bit());
-            PTA24 { 
-                _typestate_locked: PhantomData,
-                _typestate_mode: PhantomData,
-            } 
+            Locked(self)
         }
     }
 
-    impl<LOCKED, MODE> OutputPin for PTA24<LOCKED, MODE> {
+    impl<MODE> OutputPin for PTA24<Output<MODE>> {
         type Error = Infallible;
 
         fn set_low(&mut self) -> Result<(), Self::Error> {
@@ -200,22 +234,34 @@ pub mod gpioa {
         }
     }
 
-    impl<LOCKED, MODE> StatefulOutputPin for PTA24<LOCKED, MODE> {
+    impl<MODE> StatefulOutputPin for PTA24<Output<MODE>> {
         fn is_set_high(&self) -> Result<bool, Infallible> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PIN_MASK != 0)
+            Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & PIN_MASK != 0)
         }
 
         fn is_set_low(&self) -> Result<bool, Infallible> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PIN_MASK == 0)
+            Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & PIN_MASK == 0)
         }
     }
 
-    impl<LOCKED, MODE> ToggleableOutputPin for PTA24<LOCKED, MODE> {
+    impl<MODE> ToggleableOutputPin for PTA24<Output<MODE>> {
         type Error = Infallible;
 
         fn toggle(&mut self) -> Result<(), Self::Error> {
             unsafe { &*GPIO_PTR }.ptor.write(|w| unsafe { w.ptto().bits(PIN_MASK) });
             Ok(())
+        }
+    }
+
+    impl<MODE> InputPin for PTA24<Input<MODE>> {
+        type Error = Infallible;
+
+        fn is_high(&self) -> Result<bool, Self::Error> {
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PIN_MASK != 0) 
+        }
+
+        fn is_low(&self) -> Result<bool, Self::Error> {
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PIN_MASK == 0) 
         }
     }
 }
