@@ -6,9 +6,8 @@ set print asm-demangle on
 # set backtrace limit to not have infinite backtrace loops
 set backtrace limit 32
 
+# flash the program into the chip
 load
 
-break main
-
-# start the process but immediately halt the processor
+# skip reset handler function
 stepi

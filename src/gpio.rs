@@ -288,7 +288,7 @@ pub mod gpioa {
         /// Configures the pin to operate as a push-pull output pin.
         pub fn into_push_pull_output(self) -> PTA24<Output<PushPull>> {
             interrupt::free(|_| unsafe {
-                (&*PORT_PTR).pcr24.write(|w| w.ode().clear_bit());
+                (&*PORT_PTR).pcr24.write(|w| w.mux().mux_1().ode().clear_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() | PIN_MASK));
             });
             PTA24 { _mode: PhantomData } 
@@ -297,7 +297,7 @@ pub mod gpioa {
         /// Configures the pin to operate as an open-drain output pin.
         pub fn into_open_drain_output(self) -> PTA24<Output<OpenDrain>> {
             interrupt::free(|_| unsafe {
-                (&*PORT_PTR).pcr24.write(|w| w.ode().set_bit());
+                (&*PORT_PTR).pcr24.write(|w| w.mux().mux_1().ode().set_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() | PIN_MASK));
             });
             PTA24 { _mode: PhantomData } 
@@ -306,7 +306,7 @@ pub mod gpioa {
         /// Configures the pin to operate as a floating input pin.
         pub fn into_floating_input(self) -> PTA24<Input<Floating>> {
             interrupt::free(|_| unsafe {
-                (&*PORT_PTR).pcr24.write(|w| w.pe().clear_bit());
+                (&*PORT_PTR).pcr24.write(|w| w.mux().mux_1().pe().clear_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !PIN_MASK));
             });
             PTA24 { _mode: PhantomData } 
@@ -315,7 +315,7 @@ pub mod gpioa {
         /// Configures the pin to operate as a pull-up input pin.
         pub fn into_pull_up_input(self) -> PTA24<Input<PullUp>> {
             interrupt::free(|_| unsafe {
-                (&*PORT_PTR).pcr24.write(|w| w.ps().set_bit().pe().set_bit());
+                (&*PORT_PTR).pcr24.write(|w| w.mux().mux_1().ps().set_bit().pe().set_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !PIN_MASK));
             });
             PTA24 { _mode: PhantomData } 
@@ -324,7 +324,7 @@ pub mod gpioa {
         /// Configures the pin to operate as a pull-down input pin.
         pub fn into_pull_down_input(self) -> PTA24<Input<PullDown>> {
             interrupt::free(|_| unsafe {
-                (&*PORT_PTR).pcr24.write(|w| w.ps().clear_bit().pe().set_bit());
+                (&*PORT_PTR).pcr24.write(|w| w.mux().mux_1().ps().clear_bit().pe().set_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !PIN_MASK));
             });
             PTA24 { _mode: PhantomData } 
