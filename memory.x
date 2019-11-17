@@ -15,7 +15,7 @@ REGION_ALIAS("REGION_STACK", RAM_LOW);
 REGION_ALIAS("REGION_HEAP", RAM_HIGH);
 
 SECTIONS {
-    .vectors: 
+    .vectors : 
     {
         _vector_table = .;
         KEEP(*(.vectors))
