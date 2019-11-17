@@ -449,7 +449,7 @@ $(
 }
 
 macro_rules! pfe_impl {
-    ($($PTXi: ident, $pcri: ident, $PORTX: ident, $gpiox: ident;)+) => {  
+    ($($PTXi: ident:($pcri: ident, $PORTX: ident, $gpiox: ident),)+) => {  
 $(
     // not all pins support passive filter
     impl<MODE> $gpiox::$PTXi<Input<MODE>> {
@@ -468,7 +468,7 @@ $(
 }
 
 macro_rules! dse_impl {
-    ($($PTXi: ident, $pcri: ident, $PORTX: ident, $gpiox: ident;)+) => {  
+    ($($PTXi: ident:($pcri: ident, $PORTX: ident, $gpiox: ident),)+) => {  
 $(
     // not all pins support drive strength config
     impl<MODE> $gpiox::$PTXi<Output<MODE>> {
@@ -486,6 +486,8 @@ $(
 )+
     }
 }
+
+// todo: check default modes
 
 gpio_impl! { GPIOA, gpioa, gpioa, PORTA, porta, PTAx, [
     PTA0: (pta0, 0, pcr0, Input<Floating>),
@@ -577,18 +579,18 @@ gpio_impl! { GPIOD, gpiod, gpioa, PORTD, portd, PTCx, [
 ] }
 
 pfe_impl! {
-    PTA0, pcr0, PORTA, gpioa;
+    PTA0: (pcr0, PORTA, gpioa),
 }
 
 dse_impl! {
-    PTC7, pcr7, PORTC, gpioc;
-    PTC8, pcr8, PORTC, gpioc;
-    PTC9, pcr9, PORTC, gpioc;
-    PTC10, pcr10, PORTC, gpioc;
-    PTC11, pcr11, PORTC, gpioc;
-    PTC12, pcr12, PORTC, gpioc;
-    PTD8, pcr8, PORTD, gpiod;
-    PTD9, pcr9, PORTD, gpiod;
-    PTD10, pcr10, PORTD, gpiod;
-    PTD11, pcr11, PORTD, gpiod;
+    PTC7: (pcr7, PORTC, gpioc),
+    PTC8: (pcr8, PORTC, gpioc),
+    PTC9: (pcr9, PORTC, gpioc),
+    PTC10: (pcr10, PORTC, gpioc),
+    PTC11: (pcr11, PORTC, gpioc),
+    PTC12: (pcr12, PORTC, gpioc),
+    PTD8: (pcr8, PORTD, gpiod),
+    PTD9: (pcr9, PORTD, gpiod),
+    PTD10: (pcr10, PORTD, gpiod),
+    PTD11: (pcr11, PORTD, gpiod),
 }
