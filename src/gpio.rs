@@ -454,6 +454,8 @@ $(
     // not all pins support passive filter
     impl<MODE> $gpiox::$PTXi<Input<MODE>> {
         /// Enable or disable passive filter for this pin.
+        /// 
+        /// Passive filter configuration is valid in all digital pin muxing modes.
         pub fn set_passive_filter(&self, value: bool) {
             unsafe { &*crate::pac::$PORTX::ptr() }.$pcri.write(|w| match value {
                 false => w.pfe().clear_bit(),
@@ -470,6 +472,10 @@ macro_rules! dse_impl {
 $(
     // not all pins support drive strength config
     impl<MODE> $gpiox::$PTXi<Output<MODE>> {
+        /// Configure the drive strength on the corresponding pin. 
+        /// 
+        /// According to the chip referrence manual, this configuration is only valid
+        /// if the pin is configured as a digital output.
         pub fn set_drive_strength(&self, value: DriveStrength) {
             unsafe { &*crate::pac::$PORTX::ptr() }.$pcri.write(|w| match value {
                 DriveStrength::Low => w.dse().clear_bit(),
