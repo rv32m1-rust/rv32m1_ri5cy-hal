@@ -152,7 +152,7 @@ macro_rules! gpio_impl {
     ($GPIOX: ident, $gpiox: ident, $gpioy: ident, $PORTX: ident, $portx: ident, $PTXx: ident, [
         $($PTXi: ident:($ptxi: ident, $i: expr, $pcri: ident, $mode: ty),)+
     ]) => {    
-// GPIO
+/// GPIO
 pub mod $gpiox {
     use crate::{pac, pcc};
     use core::{convert::Infallible, marker::PhantomData};
