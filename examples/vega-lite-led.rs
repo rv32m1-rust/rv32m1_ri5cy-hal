@@ -3,7 +3,7 @@
 #![no_main]
 extern crate panic_halt;
 
-use rv32m1_ri5cy_hal::{prelude::*, pac};
+use rv32m1_ri5cy_hal::{pac, prelude::*};
 
 #[riscv_rt::entry]
 fn main() -> ! {

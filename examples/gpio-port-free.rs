@@ -2,7 +2,7 @@
 #![no_main]
 extern crate panic_halt;
 
-use rv32m1_ri5cy_hal::{self as hal, prelude::*, pac};
+use rv32m1_ri5cy_hal::{self as hal, pac, prelude::*};
 
 #[riscv_rt::entry]
 fn main() -> ! {
@@ -15,8 +15,10 @@ fn main() -> ! {
     // todo: delay here
     // pta24.set_low().unwrap();
     // free gpioa parts
-    let (_gpioa, _porta) = hal::gpio::gpioa::Parts { 
+    let (_gpioa, _porta) = hal::gpio::gpioa::Parts {
         pta24: pta24.into_floating_input(),
-    ..gpioa }.free(&mut pcc0.porta);
+        ..gpioa
+    }
+    .free(&mut pcc0.porta);
     loop {}
 }

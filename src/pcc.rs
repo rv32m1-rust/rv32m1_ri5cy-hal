@@ -17,7 +17,7 @@ impl PccExt for PCC0 {
 }
 
 pub struct Pcc {
-    $( 
+    $(
         /// Port
         pub $portx: $PORTX,
     )+

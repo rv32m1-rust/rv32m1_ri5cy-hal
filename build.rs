@@ -13,7 +13,8 @@ const MISSING_CARGO_ENV: &'static str = "Missing environment variables provided 
 fn put_memory_x(out_dir: &str) {
     let dest_path = Path::new(&out_dir);
     let mut f = File::create(&dest_path.join("memory.x")).expect("Could not create file");
-    f.write_all(include_bytes!("memory.x")).expect("Could not write file");
+    f.write_all(include_bytes!("memory.x"))
+        .expect("Could not write file");
     println!("cargo:rustc-link-search={}", dest_path.display());
     println!("cargo:rerun-if-changed=memory.x");
 }
@@ -28,7 +29,8 @@ fn include_a_files(out_dir: &str) {
         fs::copy(
             format!("bin/{}.a", target),
             out_dir.join(format!("lib{}.a", name)),
-        ).unwrap();
+        )
+        .unwrap();
 
         println!("cargo:rustc-link-lib=static={}", name);
         println!("cargo:rustc-link-search={}", out_dir.display());

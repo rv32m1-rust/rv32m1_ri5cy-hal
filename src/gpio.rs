@@ -23,8 +23,8 @@ pub trait GpioExt {
     type Parts;
 
     /// Splits the GPIO block into independent pins and registers
-    /// 
-    /// It's possible to have errors because this GPIO peripheral may be in use 
+    ///
+    /// It's possible to have errors because this GPIO peripheral may be in use
     /// by another core, or the peripheral is absent on this device.
     fn split(self, pcc_port: &mut Self::Clock) -> Result<Self::Parts, SplitError>;
 }
@@ -41,21 +41,21 @@ pub enum SplitError {
 /// Pin slew rate, valid in all digital pin muxing modes.
 #[derive(Clone, Copy, Debug)]
 pub enum SlewRate {
-    /// Fast slew rate is configured on the corresponding pin, 
+    /// Fast slew rate is configured on the corresponding pin,
     /// if the pin is configured as a digital output.
     Fast,
-    /// Slow slew rate is configured on the corresponding pin, 
+    /// Slow slew rate is configured on the corresponding pin,
     /// if the pin is configured as a digital output.
-    Slow
+    Slow,
 }
 
 /// Pin drive strength, valid in all digital pin muxing modes.
 #[derive(Clone, Copy, Debug)]
 pub enum DriveStrength {
-    /// Low drive strength is configured on the corresponding pin, 
+    /// Low drive strength is configured on the corresponding pin,
     /// if pin is configured as a digital output.
     Low,
-    /// High drive strength is configured on the corresponding pin, 
+    /// High drive strength is configured on the corresponding pin,
     /// if pin is configured as a digital output.
     High,
 }
@@ -85,17 +85,17 @@ pub struct PushPull;
 /// Open-drain output (type state)
 pub struct OpenDrain;
 
-/// Wraps a pin if its Pin Control Register (PCR) is locked 
+/// Wraps a pin if its Pin Control Register (PCR) is locked
 pub struct Locked<T>(T);
 
 // implement all digital input/output traits for locked pins
 mod impl_for_locked {
     use super::Locked;
-    use embedded_hal::digital::v2::{OutputPin, StatefulOutputPin, ToggleableOutputPin, InputPin};
+    use embedded_hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, ToggleableOutputPin};
 
-    impl<T> OutputPin for Locked<T> 
-    where 
-        T: OutputPin 
+    impl<T> OutputPin for Locked<T>
+    where
+        T: OutputPin,
     {
         type Error = T::Error;
 
@@ -106,11 +106,11 @@ mod impl_for_locked {
         fn set_high(&mut self) -> Result<(), Self::Error> {
             self.0.set_high()
         }
-    }    
-    
-    impl<T> StatefulOutputPin for Locked<T> 
-    where 
-        T: StatefulOutputPin 
+    }
+
+    impl<T> StatefulOutputPin for Locked<T>
+    where
+        T: StatefulOutputPin,
     {
         fn is_set_high(&self) -> Result<bool, Self::Error> {
             self.0.is_set_high()
@@ -121,27 +121,27 @@ mod impl_for_locked {
         }
     }
 
-    impl<T> ToggleableOutputPin for Locked<T> 
-    where 
-        T: ToggleableOutputPin 
+    impl<T> ToggleableOutputPin for Locked<T>
+    where
+        T: ToggleableOutputPin,
     {
         type Error = T::Error;
-    
+
         fn toggle(&mut self) -> Result<(), Self::Error> {
             self.0.toggle()
         }
     }
-    
-    impl<T> InputPin for Locked<T> 
-    where 
-        T: InputPin 
-    {   
+
+    impl<T> InputPin for Locked<T>
+    where
+        T: InputPin,
+    {
         type Error = T::Error;
-    
+
         fn is_high(&self) -> Result<bool, Self::Error> {
             self.0.is_high()
         }
-    
+
         fn is_low(&self) -> Result<bool, Self::Error> {
             self.0.is_low()
         }
@@ -151,7 +151,7 @@ mod impl_for_locked {
 macro_rules! gpio_impl {
     ($GPIOX: ident, $gpiox: ident, $gpioy: ident, $PORTX: ident, $portx: ident, $PTXx: ident, [
         $($PTXi: ident:($ptxi: ident, $i: expr, $pcri: ident, $mode: ty),)+
-    ]) => {    
+    ]) => {
 /// GPIO
 pub mod $gpiox {
     use crate::{pac, pcc};
@@ -180,7 +180,7 @@ pub mod $gpiox {
                     return Err(SplitError::Absent)
                 }
                 // if the port is being used by another core, throw an error.
-                // That means, software on another core has already configured the clocking 
+                // That means, software on another core has already configured the clocking
                 // options of this peripheral.
                 // For example, if your CPU software is the first to occupy this peripheral,
                 // the INUSE bit would return 0, and settings to CGC bit would success. But
@@ -191,11 +191,11 @@ pub mod $gpiox {
                 }
                 // enable port clock
                 pcc_port.port().write(|w| w.cgc().set_bit());
-                Ok(Parts { 
-                    $( $ptxi: $PTXi { _mode: PhantomData }, )+ 
+                Ok(Parts {
+                    $( $ptxi: $PTXi { _mode: PhantomData }, )+
                 })
             })
-        } 
+        }
     }
 
     /// GPIO parts
@@ -208,16 +208,16 @@ pub mod $gpiox {
 
     impl Parts {
         /// Free and release the port taken so it could be used by another core.
-        /// 
+        ///
         /// Users may use this function like:
         /// ```
-        /// let pta0 = gpioa.pta0.into_push_pull_output(); 
-        /// let pta24 = gpioa.pta24.into_push_pull_output(); 
-        /// // code that uses pin pta0 and pta24 etc. 
-        /// // switch the port mode back before free operation. 
-        /// Parts { 
-        ///     pta0: pta0.into_floating_input(), 
-        ///     pta24: pta24.into_floating_input(), 
+        /// let pta0 = gpioa.pta0.into_push_pull_output();
+        /// let pta24 = gpioa.pta24.into_push_pull_output();
+        /// // code that uses pin pta0 and pta24 etc.
+        /// // switch the port mode back before free operation.
+        /// Parts {
+        ///     pta0: pta0.into_floating_input(),
+        ///     pta24: pta24.into_floating_input(),
         /// ..parts }.free(); // free this port
         /// ```
         pub fn free(self, pcc_port: &mut pcc::$PORTX) -> (pac::$GPIOX, pac::$PORTX) {
@@ -253,14 +253,14 @@ pub mod $gpiox {
             Ok(())
         }
     }
-    
+
     impl<MODE> InputPin for $PTXx<Input<MODE>> {
         type Error = Infallible;
         fn is_high(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() != 0) 
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() != 0)
         }
         fn is_low(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() == 0) 
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() == 0)
         }
     }
 
@@ -284,10 +284,10 @@ pub mod $gpiox {
     impl InputPin for $PTXx<Output<OpenDrain>> {
         type Error = Infallible;
         fn is_high(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() != 0) 
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() != 0)
         }
         fn is_low(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() == 0) 
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() == 0)
         }
     }
 $(
@@ -303,7 +303,7 @@ $(
                 (&*PORT_PTR).$pcri.write(|w| w.mux().mux_1().ode().clear_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() | (1 << $i)));
             });
-            $PTXi { _mode: PhantomData } 
+            $PTXi { _mode: PhantomData }
         }
 
         /// Configures the pin to operate as an open-drain output pin.
@@ -312,7 +312,7 @@ $(
                 (&*PORT_PTR).$pcri.write(|w| w.mux().mux_1().ode().set_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() | (1 << $i)));
             });
-            $PTXi { _mode: PhantomData } 
+            $PTXi { _mode: PhantomData }
         }
 
         /// Configures the pin to operate as a floating input pin.
@@ -321,7 +321,7 @@ $(
                 (&*PORT_PTR).$pcri.write(|w| w.mux().mux_1().pe().clear_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << $i)));
             });
-            $PTXi { _mode: PhantomData } 
+            $PTXi { _mode: PhantomData }
         }
 
         /// Configures the pin to operate as a pull-up input pin.
@@ -330,7 +330,7 @@ $(
                 (&*PORT_PTR).$pcri.write(|w| w.mux().mux_1().ps().set_bit().pe().set_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << $i)));
             });
-            $PTXi { _mode: PhantomData } 
+            $PTXi { _mode: PhantomData }
         }
 
         /// Configures the pin to operate as a pull-down input pin.
@@ -339,7 +339,7 @@ $(
                 (&*PORT_PTR).$pcri.write(|w| w.mux().mux_1().ps().clear_bit().pe().set_bit());
                 (&*GPIO_PTR).pddr.modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << $i)));
             });
-            $PTXi { _mode: PhantomData } 
+            $PTXi { _mode: PhantomData }
         }
     }
 
@@ -368,18 +368,18 @@ $(
 
     impl<MODE> $PTXi<MODE> {
         /// Lock this pin to deny any further mode updates until next system reset.
-        /// 
+        ///
         /// After this operation, you are still allowed to change the output state or read
         /// from input state. However, it locks the pin mode so you cannot change pin mode
-        /// anymore before system reset. 
-        /// 
+        /// anymore before system reset.
+        ///
         /// This operation would lock the pin's Pin Control Register (PCR), which controls
         /// pin's internal pulls, open drain enables. The pin mode may still be changed, but
-        /// only between given one output mode and one input mode specified by the PCR. 
+        /// only between given one output mode and one input mode specified by the PCR.
         /// We have not provided a function to switch between input and output after locked,
-        /// and this is considered as a limit of this library. If you have any good idea, 
-        /// please [fire an issue] to tell us. 
-        /// 
+        /// and this is considered as a limit of this library. If you have any good idea,
+        /// please [fire an issue] to tell us.
+        ///
         /// [fire an issue]: https://github.com/rv32m1-rust/rv32m1_ri5cy-hal/issues/new
         pub fn lock(self) -> Locked<$PTXi<MODE>> {
             unsafe { &*PORT_PTR }.$pcri.write(|w| w.lk().set_bit());
@@ -424,11 +424,11 @@ $(
         type Error = Infallible;
 
         fn is_high(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0) 
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0)
         }
 
         fn is_low(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) == 0) 
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) == 0)
         }
     }
 
@@ -436,25 +436,25 @@ $(
         type Error = Infallible;
 
         fn is_high(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0) 
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0)
         }
 
         fn is_low(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) == 0) 
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) == 0)
         }
     }
 )+
-} 
+}
     };
 }
 
 macro_rules! pfe_impl {
-    ($($PTXi: ident:($pcri: ident, $PORTX: ident, $gpiox: ident),)+) => {  
+    ($($PTXi: ident:($pcri: ident, $PORTX: ident, $gpiox: ident),)+) => {
 $(
     // not all pins support passive filter
     impl<MODE> $gpiox::$PTXi<Input<MODE>> {
         /// Enable or disable passive filter for this pin.
-        /// 
+        ///
         /// Passive filter configuration is valid in all digital pin muxing modes.
         pub fn set_passive_filter(&self, value: bool) {
             unsafe { &*crate::pac::$PORTX::ptr() }.$pcri.write(|w| match value {
@@ -468,12 +468,12 @@ $(
 }
 
 macro_rules! dse_impl {
-    ($($PTXi: ident:($pcri: ident, $PORTX: ident, $gpiox: ident),)+) => {  
+    ($($PTXi: ident:($pcri: ident, $PORTX: ident, $gpiox: ident),)+) => {
 $(
     // not all pins support drive strength config
     impl<MODE> $gpiox::$PTXi<Output<MODE>> {
-        /// Configure the drive strength on the corresponding pin. 
-        /// 
+        /// Configure the drive strength on the corresponding pin.
+        ///
         /// According to the chip referrence manual, this configuration is only valid
         /// if the pin is configured as a digital output.
         pub fn set_drive_strength(&self, value: DriveStrength) {
