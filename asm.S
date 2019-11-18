@@ -1,7 +1,7 @@
 # author:  Luo Jia <luojia65@hust.edu.cn> 2019-11-17
 .text
 .section .vectors, "ax"
-.option norvc
+.option norvc # Do not compile as 16-bit wide instructions 
 .globl _rv32m1_ri5cy_vectors
 _rv32m1_ri5cy_vectors:
     jal x0, DMA0_0_4_8_12_IRQHandler
