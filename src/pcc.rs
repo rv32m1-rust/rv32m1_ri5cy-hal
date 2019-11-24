@@ -6,39 +6,43 @@ pub trait PccExt {
     fn constrain(self) -> Pcc;
 }
 
-macro_rules! port_impl {
-    ($($PORTX: ident, $portx: ident, $PCC_PORTX: ident, $pcc_portx: ident;)+) => {
+macro_rules! pcc_impl {
+    ($($REGX: ident, $regx: ident, $PCC_REGX: ident, $pcc_regx: ident, $doc: expr;)+) => {
 impl PccExt for PCC0 {
     fn constrain(self) -> Pcc {
         Pcc {
-            $( $portx: $PORTX { _ownership: () }, )+
+            $( $regx: $REGX { _ownership: () }, )+
         }
     }
 }
 
 pub struct Pcc {
     $(
-        /// Port
-        pub $portx: $PORTX,
+        #[doc = $doc]
+        pub $regx: $REGX,
     )+
 }
 $(
-    pub struct $PORTX {
+    #[doc = $doc]
+    pub struct $REGX {
         _ownership: ()
     }
 
-    impl $PORTX {
-        pub fn port(&self) -> &pcc0::$PCC_PORTX {
-            unsafe { &(*PCC0::ptr()).$pcc_portx }
+    impl $REGX {
+        pub(crate) fn reg(&self) -> &pcc0::$PCC_REGX {
+            unsafe { &(*PCC0::ptr()).$pcc_regx }
         }
     }
 )+
     };
 }
 
-port_impl! {
-    PORTA, porta, PCC_PORTA, pcc_porta;
-    PORTB, portb, PCC_PORTB, pcc_portb;
-    PORTC, portc, PCC_PORTC, pcc_portc;
-    PORTD, portd, PCC_PORTD, pcc_portd;
+pcc_impl! {
+    LPUART0, lpuart0, PCC_LPUART0, pcc_lpuart0, "Low-Power UART";
+    // LPUART1, lpuart1, PCC_LPUART1, pcc_lpuart1, "Low-Power UART";
+    // LPUART2, lpuart2, PCC_LPUART2, pcc_lpuart2, "Low-Power UART";
+    PORTA, porta, PCC_PORTA, pcc_porta, "Port";
+    PORTB, portb, PCC_PORTB, pcc_portb, "Port";
+    PORTC, portc, PCC_PORTC, pcc_portc, "Port";
+    PORTD, portd, PCC_PORTD, pcc_portd, "Port";
 }

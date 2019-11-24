@@ -1,5 +1,7 @@
 //! General-Purpose Input/Output (GPIO)
 
+/*  todo: interrupts, both flags and settings.
+    do interrupt flag and settings freeze when pin is locked? */
 /*
     todo: there is a design bug. after pin locking, the input/output
     state can still be changed, (but mode of input and output cannot)
@@ -181,7 +183,7 @@ pub mod $gpiox {
         fn split(self, pcc_port: &mut pcc::$PORTX) -> Result<Self::Parts, SplitError> {
             interrupt::free(|_| {
                 // if the port is not absent on this device, throw an error
-                if !pcc_port.port().read().pr().is_pr_1() {
+                if !pcc_port.reg().read().pr().is_pr_1() {
                     return Err(SplitError::Absent)
                 }
                 // if the port is being used by another core, throw an error.
@@ -191,11 +193,11 @@ pub mod $gpiox {
                 // the INUSE bit would return 0, and settings to CGC bit would success. But
                 // if it's not your CPU first to occupy, the INUSE bit would return 1 meaning
                 // that this port is somehow locked by other CPUs.
-                if pcc_port.port().read().inuse().is_inuse_1() {
+                if pcc_port.reg().read().inuse().is_inuse_1() {
                     return Err(SplitError::InUse)
                 }
                 // enable port clock
-                pcc_port.port().write(|w| w.cgc().set_bit());
+                pcc_port.reg().write(|w| w.cgc().set_bit());
                 Ok(Parts {
                     $( $ptxi: $PTXi { _mode: PhantomData }, )+
                 })
@@ -228,7 +230,7 @@ pub mod $gpiox {
         pub fn free(self, pcc_port: &mut pcc::$PORTX) -> (pac::$GPIOX, pac::$PORTX) {
             use core::mem::transmute;
             // release port clock
-            pcc_port.port().write(|w| w.cgc().clear_bit());
+            pcc_port.reg().write(|w| w.cgc().clear_bit());
             // return the ownership of $GPIOX and $PORTX
             unsafe { (transmute(()), transmute(())) }
         }

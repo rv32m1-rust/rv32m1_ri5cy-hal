@@ -9,4 +9,4 @@ pub use rv32m1_ri5cy_pac as pac;
 pub mod gpio;
 pub mod pcc;
 pub mod prelude;
-pub mod lpuart;
+pub mod serial;
