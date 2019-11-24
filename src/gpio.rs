@@ -494,7 +494,7 @@ $(
     }
 }
 
-// todo: check default modes
+// todo: change all default mode into Analog<What>
 
 gpio_impl! { GPIOA, gpioa, gpioa, PORTA, porta, PTAx, [
     PTA0: (pta0, 0, pcr0, Input<Floating>),
