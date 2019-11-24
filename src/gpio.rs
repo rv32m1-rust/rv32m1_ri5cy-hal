@@ -89,6 +89,11 @@ pub struct OpenDrain;
 pub struct Locked<T>(T);
 
 // implement all digital input/output traits for locked pins
+//
+// there could be a better design: impl Deref and DerefMut for Locked<_>. 
+// But as soon as we have slew rate configuration function which requires a 
+// &mut self and cannot be changed after locked, we dropped this design.
+// If you have any good idea, please fire an issue or raise a pull request.
 mod impl_for_locked {
     use super::Locked;
     use embedded_hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, ToggleableOutputPin};
@@ -456,7 +461,8 @@ $(
         /// Enable or disable passive filter for this pin.
         ///
         /// Passive filter configuration is valid in all digital pin muxing modes.
-        pub fn set_passive_filter(&self, value: bool) {
+        /// This function needs a mutable borrow of self to change its state register.
+        pub fn set_passive_filter(&mut self, value: bool) {
             unsafe { &*crate::pac::$PORTX::ptr() }.$pcri.write(|w| match value {
                 false => w.pfe().clear_bit(),
                 true => w.pfe().set_bit(),
@@ -474,9 +480,10 @@ $(
     impl<MODE> $gpiox::$PTXi<Output<MODE>> {
         /// Configure the drive strength on the corresponding pin.
         ///
-        /// According to the chip referrence manual, this configuration is only valid
+        /// According to the chip referrence manual, the configuration is only valid
         /// if the pin is configured as a digital output.
-        pub fn set_drive_strength(&self, value: DriveStrength) {
+        /// This function needs a mutable borrow of self to change its state register.
+        pub fn set_drive_strength(&mut self, value: DriveStrength) {
             unsafe { &*crate::pac::$PORTX::ptr() }.$pcri.write(|w| match value {
                 DriveStrength::Low => w.dse().clear_bit(),
                 DriveStrength::High => w.dse().set_bit(),
