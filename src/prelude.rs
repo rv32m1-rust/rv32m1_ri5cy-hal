@@ -1,5 +1,7 @@
 //! Prelude
 
+pub use crate::port::PortExt as _rv32m1_ri5cy_hal_port_PortExt;
+pub use crate::gpio::convert::*; // todo
 pub use crate::gpio::GpioExt as _rv32m1_ri5cy_hal_gpio_GpioExt;
 pub use crate::pcc::PccExt as _rv32m1_ri5cy_hal_pcc_PccExt;
 pub use embedded_hal::digital::v2::{
