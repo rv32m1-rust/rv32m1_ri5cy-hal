@@ -40,8 +40,8 @@ pub mod gpioa {
     use core::convert::Infallible;
     use crate::pac;
     use crate::port::{
-        Pin, PushPull, OpenDrain, Floating, PullUp, PullDown,
-        ALT1, Unlocked, Locked, porta::PTA24, PinIndex
+        PushPull, OpenDrain, Floating, PullUp, PullDown,
+        ALT1, Unlocked, Locked, porta::PTA24
     };
     use super::{GpioExt, Input, Output};
     use super::convert::*;
@@ -82,14 +82,22 @@ pub mod gpioa {
         }
     }
 
-    pub struct PA24<IM, OM, LK, DIR>(Pin<PTA24, (IM, OM, ALT1), LK>, DIR);
+    pub struct PA24<IM, OM, LK, DIR>(PTA24<(IM, OM, ALT1), LK>, DIR);
 
+    impl<IM, OM, LK, DIR> PA24<IM, OM, LK, DIR> {
+        #[inline]
+        pub fn free(self) -> PTA24<(IM, OM, ALT1), LK> {
+            self.0
+        }
+    }
+    
     impl<IM, OM, DIR> IntoPushPullOutput for PA24<IM, OM, Unlocked, DIR> {
         type Target = PA24<IM, PushPull, Unlocked, Output>;
         type Gpio = GPIOA;
+        #[inline]
         fn into_push_pull_output(self, gpioa: &mut GPIOA) -> Self::Target {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | 1 << 24)) };
                 self.0.set_push_pull().into_alt1()
             }), Output)
         }
@@ -98,9 +106,10 @@ pub mod gpioa {
     impl<IM, DIR> IntoPushPullOutput for PA24<IM, PushPull, Locked, DIR> {
         type Target = PA24<IM, PushPull, Locked, Output>;
         type Gpio = GPIOA;
+        #[inline]
         fn into_push_pull_output(self, gpioa: &mut GPIOA) -> Self::Target {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | 1 << 24)) };
                 self.0
             }), Output)
         }
@@ -109,9 +118,10 @@ pub mod gpioa {
     impl<IM, OM, DIR> IntoOpenDrainOutput for PA24<IM, OM, Unlocked, DIR> {
         type Target = PA24<IM, OpenDrain, Unlocked, Output>;
         type Gpio = GPIOA;
+        #[inline]
         fn into_open_drain_output(self, gpioa: &mut GPIOA) -> Self::Target {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | 1 << 24)) };
                 self.0.set_open_drain().into_alt1()
             }), Output)
         }
@@ -120,9 +130,10 @@ pub mod gpioa {
     impl<IM, DIR> IntoOpenDrainOutput for PA24<IM, OpenDrain, Locked, DIR> {
         type Target = PA24<IM, OpenDrain, Locked, Output>;
         type Gpio = GPIOA;
+        #[inline]
         fn into_open_drain_output(self, gpioa: &mut GPIOA) -> Self::Target {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | 1 << 24)) };
                 self.0
             }), Output)
         }
@@ -131,9 +142,10 @@ pub mod gpioa {
     impl<IM, OM, DIR> IntoFloatingInput for PA24<IM, OM, Unlocked, DIR> {
         type Target = PA24<Floating, OM, Unlocked, Output>;
         type Gpio = GPIOA;
+        #[inline]
         fn into_floating_input(self, gpioa: &mut GPIOA) -> Self::Target {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << 24))) };
                 self.0.set_floating().into_alt1()
             }), Output)
         }
@@ -142,9 +154,10 @@ pub mod gpioa {
     impl<OM, DIR> IntoFloatingInput for PA24<Floating, OM, Locked, DIR> {
         type Target = PA24<Floating, OM, Locked, Output>;
         type Gpio = GPIOA;
+        #[inline]
         fn into_floating_input(self, gpioa: &mut GPIOA) -> Self::Target {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << 24))) };
                 self.0
             }), Output)
         }
@@ -153,9 +166,10 @@ pub mod gpioa {
     impl<IM, OM, DIR> IntoPullUpInput for PA24<IM, OM, Unlocked, DIR> {
         type Target = PA24<PullUp, OM, Unlocked, Output>;
         type Gpio = GPIOA;
+        #[inline]
         fn into_pull_up_input(self, gpioa: &mut GPIOA) -> Self::Target {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << 24))) };
                 self.0.set_pull_up().into_alt1()
             }), Output)
         }
@@ -164,9 +178,10 @@ pub mod gpioa {
     impl<OM, DIR> IntoPullUpInput for PA24<PullUp, OM, Locked, DIR> {
         type Target = PA24<PullUp, OM, Locked, Output>;
         type Gpio = GPIOA;
+        #[inline]
         fn into_pull_up_input(self, gpioa: &mut GPIOA) -> Self::Target {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << 24))) };
                 self.0
             }), Output)
         }
@@ -175,9 +190,10 @@ pub mod gpioa {
     impl<IM, OM, DIR> IntoPullDownInput for PA24<IM, OM, Unlocked, DIR> {
         type Target = PA24<PullDown, OM, Unlocked, Output>;
         type Gpio = GPIOA;
+        #[inline]
         fn into_pull_down_input(self, gpioa: &mut GPIOA) -> Self::Target {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << 24))) };
                 self.0.set_pull_down().into_alt1()
             }), Output)
         }
@@ -186,19 +202,20 @@ pub mod gpioa {
     impl<OM, DIR> IntoPullDownInput for PA24<PullDown, OM, Locked, DIR> {
         type Target = PA24<PullDown, OM, Locked, Output>;
         type Gpio = GPIOA;
+        #[inline]
         fn into_pull_down_input(self, gpioa: &mut GPIOA) -> Self::Target {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << 24))) };
                 self.0
             }), Output)
         }
     }
 
-    impl<IM, OM, ALT> Pin<PTA24, (IM, OM, ALT), Unlocked> {
+    impl<IM, OM, ALT> PTA24<(IM, OM, ALT), Unlocked> {
         #[inline]
         pub fn into_push_pull_output(self, gpioa: &mut GPIOA) -> PA24<IM, PushPull, Unlocked, Output> {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | 1 << 24)) };
                 self.set_push_pull().into_alt1()
             }), Output)
         }
@@ -206,7 +223,7 @@ pub mod gpioa {
         #[inline]
         pub fn into_open_drain_output(self, gpioa: &mut GPIOA) -> PA24<IM, OpenDrain, Unlocked, Output> {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() | 1 << 24)) };
                 self.set_open_drain().into_alt1()
             }), Output)
         }
@@ -214,7 +231,7 @@ pub mod gpioa {
         #[inline]
         pub fn into_floating_input(self, gpioa: &mut GPIOA) -> PA24<Floating, OM, Unlocked, Input> {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << 24))) };
                 self.set_floating().into_alt1()
             }), Input)
         }
@@ -222,7 +239,7 @@ pub mod gpioa {
         #[inline]
         pub fn into_pull_up_input(self, gpioa: &mut GPIOA) -> PA24<PullUp, OM, Unlocked, Input>  {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << 24))) };
                 self.set_pull_up().into_alt1()
             }), Input)
         }
@@ -230,7 +247,7 @@ pub mod gpioa {
         #[inline]
         pub fn into_pull_down_input(self, gpioa: &mut GPIOA) -> PA24<PullDown, OM, Unlocked, Input>  {
             PA24(interrupt::free(|_| {
-                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !PTA24::MASK)) };
+                unsafe { gpioa.pddr().modify(|r, w| w.pdd().bits(r.pdd().bits() & !(1 << 24))) };
                 self.set_pull_down().into_alt1()
             }), Input)
         }
@@ -240,12 +257,12 @@ pub mod gpioa {
         type Error = Infallible;
         #[inline]
         fn set_low(&mut self) -> Result<(), Self::Error> {
-            unsafe { &*GPIO_PTR }.pcor.write(|w| unsafe { w.ptco().bits(PTA24::MASK) });
+            unsafe { &*GPIO_PTR }.pcor.write(|w| unsafe { w.ptco().bits(1 << 24) });
             Ok(())
         }
         #[inline]
         fn set_high(&mut self) -> Result<(), Self::Error> {
-            unsafe { &*GPIO_PTR }.psor.write(|w| unsafe { w.ptso().bits(PTA24::MASK) });
+            unsafe { &*GPIO_PTR }.psor.write(|w| unsafe { w.ptso().bits(1 << 24) });
             Ok(())
         }
     }
@@ -254,11 +271,11 @@ pub mod gpioa {
         type Error = Infallible;
         #[inline]
         fn is_high(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PTA24::MASK != 0)
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & 1 << 24 != 0)
         }
         #[inline]
         fn is_low(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PTA24::MASK == 0)
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & 1 << 24 == 0)
         }
     }
 
@@ -266,22 +283,22 @@ pub mod gpioa {
         type Error = Infallible;
         #[inline]
         fn is_high(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PTA24::MASK != 0)
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & 1 << 24 != 0)
         }
         #[inline]
         fn is_low(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & PTA24::MASK == 0)
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & 1 << 24 == 0)
         }
     }
 
     impl<IM, OM, LK> StatefulOutputPin for PA24<IM, OM, LK, Output>  {
         #[inline]
         fn is_set_high(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & PTA24::MASK != 0)
+            Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & 1 << 24 != 0)
         }
         #[inline]
         fn is_set_low(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & PTA24::MASK == 0)
+            Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & 1 << 24 == 0)
         }
     }
 
@@ -289,7 +306,7 @@ pub mod gpioa {
         type Error = Infallible;
         #[inline]
         fn toggle(&mut self) -> Result<(), Self::Error> {
-            unsafe { &*GPIO_PTR }.ptor.write(|w| unsafe { w.ptto().bits(PTA24::MASK) });
+            unsafe { &*GPIO_PTR }.ptor.write(|w| unsafe { w.ptto().bits(1 << 24) });
             Ok(())
         }
     }
