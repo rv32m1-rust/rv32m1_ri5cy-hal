@@ -98,7 +98,7 @@ pub struct Locked<T>(T);
 // If you have any good idea, please fire an issue or raise a pull request.
 mod impl_for_locked {
     use super::Locked;
-    use embedded_hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, ToggleableOutputPin};
+    use embedded_hal::digital::{InputPin, OutputPin, StatefulOutputPin, ToggleableOutputPin};
 
     impl<T> OutputPin for Locked<T>
     where
@@ -106,12 +106,12 @@ mod impl_for_locked {
     {
         type Error = T::Error;
 
-        fn set_low(&mut self) -> Result<(), Self::Error> {
-            self.0.set_low()
+        fn try_set_low(&mut self) -> Result<(), Self::Error> {
+            self.0.try_set_low()
         }
 
-        fn set_high(&mut self) -> Result<(), Self::Error> {
-            self.0.set_high()
+        fn try_set_high(&mut self) -> Result<(), Self::Error> {
+            self.0.try_set_high()
         }
     }
 
@@ -119,12 +119,12 @@ mod impl_for_locked {
     where
         T: StatefulOutputPin,
     {
-        fn is_set_high(&self) -> Result<bool, Self::Error> {
-            self.0.is_set_high()
+        fn try_is_set_high(&self) -> Result<bool, Self::Error> {
+            self.0.try_is_set_high()
         }
 
-        fn is_set_low(&self) -> Result<bool, Self::Error> {
-            self.0.is_set_low()
+        fn try_is_set_low(&self) -> Result<bool, Self::Error> {
+            self.0.try_is_set_low()
         }
     }
 
@@ -134,8 +134,8 @@ mod impl_for_locked {
     {
         type Error = T::Error;
 
-        fn toggle(&mut self) -> Result<(), Self::Error> {
-            self.0.toggle()
+        fn try_toggle(&mut self) -> Result<(), Self::Error> {
+            self.0.try_toggle()
         }
     }
 
@@ -145,12 +145,12 @@ mod impl_for_locked {
     {
         type Error = T::Error;
 
-        fn is_high(&self) -> Result<bool, Self::Error> {
-            self.0.is_high()
+        fn try_is_high(&self) -> Result<bool, Self::Error> {
+            self.0.try_is_high()
         }
 
-        fn is_low(&self) -> Result<bool, Self::Error> {
-            self.0.is_low()
+        fn try_is_low(&self) -> Result<bool, Self::Error> {
+            self.0.try_is_low()
         }
     }
 }
@@ -168,7 +168,7 @@ pub mod $gpiox {
         PullUp, PullDown, SlewRate
     };
     // use super::DriveStrength;
-    use embedded_hal::digital::v2::{OutputPin, StatefulOutputPin, ToggleableOutputPin, InputPin};
+    use embedded_hal::digital::{OutputPin, StatefulOutputPin, ToggleableOutputPin, InputPin};
     use riscv::interrupt;
 
     const GPIO_PTR: *const pac::$gpioy::RegisterBlock = pac::$GPIOX::ptr();
@@ -251,11 +251,11 @@ pub mod $gpiox {
 
     impl<MODE> OutputPin for $PTXx<Output<MODE>> {
         type Error = Infallible;
-        fn set_low(&mut self) -> Result<(), Self::Error> {
+        fn try_set_low(&mut self) -> Result<(), Self::Error> {
             unsafe { &*GPIO_PTR }.pcor.write(|w| unsafe { w.ptco().bits(self.pin_mask()) });
             Ok(())
         }
-        fn set_high(&mut self) -> Result<(), Self::Error> {
+        fn try_set_high(&mut self) -> Result<(), Self::Error> {
             unsafe { &*GPIO_PTR }.psor.write(|w| unsafe { w.ptso().bits(self.pin_mask()) });
             Ok(())
         }
@@ -263,26 +263,26 @@ pub mod $gpiox {
 
     impl<MODE> InputPin for $PTXx<Input<MODE>> {
         type Error = Infallible;
-        fn is_high(&self) -> Result<bool, Self::Error> {
+        fn try_is_high(&self) -> Result<bool, Self::Error> {
             Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() != 0)
         }
-        fn is_low(&self) -> Result<bool, Self::Error> {
+        fn try_is_low(&self) -> Result<bool, Self::Error> {
             Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() == 0)
         }
     }
 
     impl<MODE> StatefulOutputPin for $PTXx<Output<MODE>> {
-        fn is_set_high(&self) -> Result<bool, Self::Error> {
+        fn try_is_set_high(&self) -> Result<bool, Self::Error> {
             Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & self.pin_mask() != 0)
         }
-        fn is_set_low(&self) -> Result<bool, Self::Error> {
+        fn try_is_set_low(&self) -> Result<bool, Self::Error> {
             Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & self.pin_mask() == 0)
         }
     }
 
     impl<MODE> ToggleableOutputPin for $PTXx<Output<MODE>> {
         type Error = Infallible;
-        fn toggle(&mut self) -> Result<(), Self::Error> {
+        fn try_toggle(&mut self) -> Result<(), Self::Error> {
             unsafe { &*GPIO_PTR }.ptor.write(|w| unsafe { w.ptto().bits(self.pin_mask()) });
             Ok(())
         }
@@ -290,10 +290,10 @@ pub mod $gpiox {
 
     impl InputPin for $PTXx<Output<OpenDrain>> {
         type Error = Infallible;
-        fn is_high(&self) -> Result<bool, Self::Error> {
+        fn try_is_high(&self) -> Result<bool, Self::Error> {
             Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() != 0)
         }
-        fn is_low(&self) -> Result<bool, Self::Error> {
+        fn try_is_low(&self) -> Result<bool, Self::Error> {
             Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & self.pin_mask() == 0)
         }
     }
@@ -397,23 +397,23 @@ $(
     impl<MODE> OutputPin for $PTXi<Output<MODE>> {
         type Error = Infallible;
 
-        fn set_low(&mut self) -> Result<(), Self::Error> {
+        fn try_set_low(&mut self) -> Result<(), Self::Error> {
             unsafe { &*GPIO_PTR }.pcor.write(|w| unsafe { w.ptco().bits(1 << $i) });
             Ok(())
         }
 
-        fn set_high(&mut self) -> Result<(), Self::Error> {
+        fn try_set_high(&mut self) -> Result<(), Self::Error> {
             unsafe { &*GPIO_PTR }.psor.write(|w| unsafe { w.ptso().bits(1 << $i) });
             Ok(())
         }
     }
 
     impl<MODE> StatefulOutputPin for $PTXi<Output<MODE>> {
-        fn is_set_high(&self) -> Result<bool, Infallible> {
+        fn try_is_set_high(&self) -> Result<bool, Infallible> {
             Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & (1 << $i) != 0)
         }
 
-        fn is_set_low(&self) -> Result<bool, Infallible> {
+        fn try_is_set_low(&self) -> Result<bool, Infallible> {
             Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & (1 << $i) == 0)
         }
     }
@@ -421,7 +421,7 @@ $(
     impl<MODE> ToggleableOutputPin for $PTXi<Output<MODE>> {
         type Error = Infallible;
 
-        fn toggle(&mut self) -> Result<(), Self::Error> {
+        fn try_toggle(&mut self) -> Result<(), Self::Error> {
             unsafe { &*GPIO_PTR }.ptor.write(|w| unsafe { w.ptto().bits(1 << $i) });
             Ok(())
         }
@@ -430,11 +430,11 @@ $(
     impl<MODE> InputPin for $PTXi<Input<MODE>> {
         type Error = Infallible;
 
-        fn is_high(&self) -> Result<bool, Self::Error> {
+        fn try_is_high(&self) -> Result<bool, Self::Error> {
             Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0)
         }
 
-        fn is_low(&self) -> Result<bool, Self::Error> {
+        fn try_is_low(&self) -> Result<bool, Self::Error> {
             Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) == 0)
         }
     }
@@ -442,11 +442,11 @@ $(
     impl InputPin for $PTXi<Output<OpenDrain>> {
         type Error = Infallible;
 
-        fn is_high(&self) -> Result<bool, Self::Error> {
+        fn try_is_high(&self) -> Result<bool, Self::Error> {
             Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0)
         }
 
-        fn is_low(&self) -> Result<bool, Self::Error> {
+        fn try_is_low(&self) -> Result<bool, Self::Error> {
             Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) == 0)
         }
     }

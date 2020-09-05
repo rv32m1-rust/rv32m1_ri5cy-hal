@@ -11,9 +11,9 @@ categories = ["embedded", "hardware-support", "no-std"]
 edition = "2018"
 
 [dependencies]
-embedded-hal = { version = "^0.2.3", features = ["unproven"] }
-nb = "^0.1.2"
-riscv = "^0.5.4"
+embedded-hal = "1.0.0-alpha.1"
+nb = "1"
+riscv = "0.6"
 rv32m1_ri5cy-pac = "^0.1.1"
 
 [dev-dependencies]
