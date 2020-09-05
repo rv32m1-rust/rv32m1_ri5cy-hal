@@ -19,7 +19,7 @@ rv32m1_ri5cy-pac = "^0.1.1"
 
 [dev-dependencies]
 panic-halt = "*"
-riscv-rt = "*"
+riscv-rt = "0.8"
 
 [lib]
 name = "rv32m1_ri5cy_hal"
