@@ -12,7 +12,8 @@ edition = "2018"
 
 [dependencies]
 embedded-hal = "1.0.0-alpha.1"
-nb = "1"
+embedded-time = "0.10.0"
+nb = "0.1.1"
 riscv = "0.6"
 rv32m1_ri5cy-pac = "^0.1.1"
 
