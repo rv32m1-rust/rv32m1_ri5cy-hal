@@ -1,4 +1,3 @@
-#![feature(asm)]
 #![no_std]
 #![no_main]
 extern crate panic_halt;
@@ -24,13 +23,13 @@ fn main() -> ! {
     loop {
         pta24.try_toggle().unwrap();
         // nb::block!(countdown.try_wait()).ok();
-        for _ in 0..800_000 {
-            unsafe { asm!("nop") }
-        }
+        // for _ in 0..800_000 {
+        //     // core::hint::black_box(()) // nop
+        // }
         pta23.try_toggle().unwrap();
         // nb::block!(countdown.try_wait()).ok();
-        for _ in 0..800_000 {
-            unsafe { asm!("nop") }
-        }
+        // for _ in 0..800_000 {
+        //     // core::hint::black_box(()) // nop
+        // }
     }
 }
