@@ -1,7 +1,7 @@
 //! Serial module.
 //! 
 //! This serial module is based on on-chip Low Power Universal Asynchronous Receiver/Transmitter (LPUART).
-use crate::{pac, pcc};
+use crate::{pac, pcc::{self, EnableError}};
 use core::convert::Infallible;
 
 /// Serial abstraction
@@ -10,11 +10,18 @@ pub struct Serial<LPUART, PINS> {
     pins: PINS,
 }
 
-// todo: change a name
-#[derive(Clone, Copy, Debug)]
-pub enum EnableError {
-    Absent,
-    InUse,
+/// Serial error
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum Error {
+    /// Framing error
+    Framing,
+    /// Noise error
+    Noise,
+    /// RX buffer overrun
+    Overrun,
+    /// Parity check error
+    Parity,
 }
 
 impl<PINS> Serial<pac::LPUART0, PINS> {
@@ -47,7 +54,7 @@ pub unsafe trait Pins<UART> {}
 
 impl<PINS> embedded_hal::serial::Write<u8> for Serial<pac::LPUART0, PINS> {
     /// Write error
-    type Error = Infallible;
+    type Error = Error;
 
     /// Writes a single word to the serial interface
     fn try_write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
@@ -62,7 +69,7 @@ impl<PINS> embedded_hal::serial::Write<u8> for Serial<pac::LPUART0, PINS> {
 
 impl<PINS> embedded_hal::serial::Read<u8> for Serial<pac::LPUART0, PINS> {
     /// Read error
-    type Error = Infallible;
+    type Error = Error;
 
     /// Reads a single word from the serial interface
     fn try_read(&mut self) -> nb::Result<u8, Self::Error> {

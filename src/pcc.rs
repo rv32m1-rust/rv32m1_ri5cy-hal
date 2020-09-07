@@ -46,3 +46,10 @@ pcc_impl! {
     PORTC, portc, PCC_PORTC, pcc_portc, "Port";
     PORTD, portd, PCC_PORTD, pcc_portd, "Port";
 }
+
+// todo: change a name
+#[derive(Clone, Copy, Debug)]
+pub enum EnableError {
+    Absent,
+    InUse,
+}
