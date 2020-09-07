@@ -13,7 +13,7 @@ impl Timer<LPTMR0> {
     pub fn lptmr0(tmr: LPTMR0, /* clocks: ..., pcc: ... */) -> Self {
         /* enable clocks ... */
         // disable the timer
-        (*tmr).csr.modify(|_r, w| w.ten().ten_0());
+        tmr.csr.modify(|_r, w| w.ten().ten_0());
         Self { tmr }
     }
 
@@ -22,13 +22,13 @@ impl Timer<LPTMR0> {
     where 
         T: Into<Hertz>
     {
-        (*self.tmr).csr.modify(|_r, w| w
+        self.tmr.csr.modify(|_r, w| w
             .tms().tms_0() // timer counter mode
             .tfc().tfc_0() // disable free running
             .tpp().tpp_0() // active high
             .tps().tps_0() // input #0
         );
-        (*self.tmr).psr.modify(|_r, w| w
+        self.tmr.psr.modify(|_r, w| w
             .prescale().prescale_0() // prescale = 1
             .pbyp().pbyp_1() // bypass prescaler
             .pcs().pcs_1() // prescaler clock 1
@@ -63,27 +63,27 @@ pub struct CountDown<T> {
 impl CountDown<LPTMR0> {
     /// Enable LPTMR interrupt
     pub fn listen(&mut self, event: Event) {
-        drop(event); // only one case
-        (*self.tmr).csr.modify(|_r, w| w.tie().tie_1());
+        drop(event); // note(drop): only one case
+        self.tmr.csr.modify(|_r, w| w.tie().tie_1());
     }
 
     /// Disable LPTMR interrupt
     pub fn unlisten(&mut self, event: Event) {
-        drop(event); // only one case
-        (*self.tmr).csr.modify(|_r, w| w.tie().tie_0());
+        drop(event); // note(drop): only one case
+        self.tmr.csr.modify(|_r, w| w.tie().tie_0());
     }
 
     /// Stop the count down timer
     pub fn stop(self) -> Timer<LPTMR0> {
         // disable the timer
-        (*self.tmr).csr.modify(|_r, w| w.ten().ten_0());
+        self.tmr.csr.modify(|_r, w| w.ten().ten_0());
         // return ownership
         Timer { tmr: self.tmr }
     }
 
     /// Returns the number of ticks since the last update event.
     pub fn ticks_since(&self) -> u32 {
-        (*self.tmr).cnr.read().bits()
+        self.tmr.cnr.read().bits()
     }
 
     /// Releases the count down timer
@@ -108,16 +108,16 @@ impl embedded_hal::timer::CountDown for CountDown<LPTMR0> {
     {
         self.ticks = count.into().0;
         // clean flag
-        (*self.tmr).csr.modify(|_r, w| w
+        self.tmr.csr.modify(|_r, w| w
             .tcf().set_bit() // W1C; clean the flag
         );
         // todo: refresh ticks
         // note(unsafe): ensured proper tick value
-        (*self.tmr).cmr.modify(|_r, w| unsafe {
+        self.tmr.cmr.modify(|_r, w| unsafe {
             w.compare().bits(self.ticks)
         });
         // enable the timer
-        (*self.tmr).csr.modify(|_r, w| w.ten().ten_1());
+        self.tmr.csr.modify(|_r, w| w.ten().ten_1());
         Ok(())
     }
 
@@ -130,7 +130,7 @@ impl embedded_hal::timer::CountDown for CountDown<LPTMR0> {
     /// - Otherwise the behavior of calling `try_wait` after the last call returned `Ok` is UNSPECIFIED.
     /// Implementers are suggested to panic on this scenario to signal a programmer error.
     fn try_wait(&mut self) -> nb::Result<(), Self::Error> {
-        if (*self.tmr).csr.read().tcf().is_tcf_1() {
+        if self.tmr.csr.read().tcf().is_tcf_1() {
             Ok(())
             // todo: start new timer?
         } else {

@@ -2,6 +2,7 @@
 //! 
 //! This serial module is based on on-chip Low Power Universal Asynchronous Receiver/Transmitter (LPUART).
 use crate::{pac, pcc::{self, EnableError}};
+use embedded_time::rate::Baud;
 
 /// Serial abstraction
 pub struct Serial<LPUART, PINS> {
@@ -23,13 +24,40 @@ pub enum Error {
     Parity,
 }
 
+pub enum Parity {
+    ParityNone,
+    ParityEven,
+    ParityOdd,
+}
+
+pub enum StopBits {
+    #[doc = "1 stop bit"]
+    STOP1,
+    #[doc = "0.5 stop bits"]
+    STOP0P5,
+    #[doc = "2 stop bits"]
+    STOP2,
+    #[doc = "1.5 stop bits"]
+    STOP1P5,
+}
+
+pub struct Config {
+    pub baudrate: Baud,
+    pub parity: Parity,
+    pub stopbits: StopBits,
+}
+
 impl<PINS> Serial<pac::LPUART0, PINS> {
     pub fn lpuart0(
         lpuart0: pac::LPUART0,
         pins: PINS,
         pcc_lpuart0: &mut pcc::LPUART0,
     ) -> Result<Self, EnableError> {
+        // enable peripheral clock
         pcc_lpuart0.try_enable()?;
+        // reset device
+        lpuart0.global.write(|w| w.rst().set_bit());
+        // return ownership
         Ok(Serial { lpuart: lpuart0, pins })
     }
 
