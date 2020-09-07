@@ -2,7 +2,6 @@
 //! 
 //! This serial module is based on on-chip Low Power Universal Asynchronous Receiver/Transmitter (LPUART).
 use crate::{pac, pcc::{self, EnableError}};
-use core::convert::Infallible;
 
 /// Serial abstraction
 pub struct Serial<LPUART, PINS> {
@@ -30,20 +29,13 @@ impl<PINS> Serial<pac::LPUART0, PINS> {
         pins: PINS,
         pcc_lpuart0: &mut pcc::LPUART0,
     ) -> Result<Self, EnableError> {
-        if !pcc_lpuart0.reg().read().pr().is_pr_1() {
-            return Err(EnableError::Absent)
-        }
-        if pcc_lpuart0.reg().read().inuse().is_inuse_1() {
-            return Err(EnableError::InUse)
-        }
-        // enable port clock
-        pcc_lpuart0.reg().write(|w| w.cgc().set_bit());
+        pcc_lpuart0.try_enable()?;
         Ok(Serial { lpuart: lpuart0, pins })
     }
 
     pub fn release(self, pcc_lpuart: &mut pcc::LPUART0) -> (pac::LPUART0, PINS) {
-        // disable port clock
-        pcc_lpuart.reg().write(|w| w.cgc().clear_bit());
+        // disable the peripheral
+        pcc_lpuart.disable();
         // return ownership of peripherals
         (self.lpuart, self.pins)
     }

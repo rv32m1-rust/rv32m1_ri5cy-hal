@@ -15,6 +15,7 @@
 */
 
 use core::marker::PhantomData;
+use crate::pcc::EnableError;
 
 /// Extension trait to split a GPIO peripheral into independent pins and registers
 pub trait GpioExt {
@@ -28,16 +29,7 @@ pub trait GpioExt {
     ///
     /// It's possible to have errors because this GPIO peripheral may be in use
     /// by another core, or the peripheral is absent on this device.
-    fn split(self, pcc_port: &mut Self::Clock) -> Result<Self::Parts, SplitError>;
-}
-
-/// Error that may occur when spliting port
-#[derive(Clone, Copy, Debug)]
-pub enum SplitError {
-    /// The port peripheral is not present on this device.
-    Absent,
-    /// Peripheral is being used by another core.
-    InUse,
+    fn split(self, pcc_port: &mut Self::Clock) -> Result<Self::Parts, EnableError>;
 }
 
 /// Pin slew rate, valid in all digital pin muxing modes.
@@ -164,7 +156,7 @@ pub mod $gpiox {
     use crate::{pac, pcc};
     use core::{convert::Infallible, marker::PhantomData};
     use super::{
-        GpioExt, SplitError, Locked, Output, OpenDrain, PushPull, Input, Floating,
+        GpioExt, EnableError, Locked, Output, OpenDrain, PushPull, Input, Floating,
         PullUp, PullDown, SlewRate
     };
     // use super::DriveStrength;
@@ -180,24 +172,9 @@ pub mod $gpiox {
 
         type Parts = Parts;
 
-        fn split(self, pcc_port: &mut pcc::$PORTX) -> Result<Self::Parts, SplitError> {
+        fn split(self, pcc_port: &mut pcc::$PORTX) -> Result<Self::Parts, EnableError> {
             interrupt::free(|_| {
-                // if the port is not absent on this device, throw an error
-                if !pcc_port.reg().read().pr().is_pr_1() {
-                    return Err(SplitError::Absent)
-                }
-                // if the port is being used by another core, throw an error.
-                // That means, software on another core has already configured the clocking
-                // options of this peripheral.
-                // For example, if your CPU software is the first to occupy this peripheral,
-                // the INUSE bit would return 0, and settings to CGC bit would success. But
-                // if it's not your CPU first to occupy, the INUSE bit would return 1 meaning
-                // that this port is somehow locked by other CPUs.
-                if pcc_port.reg().read().inuse().is_inuse_1() {
-                    return Err(SplitError::InUse)
-                }
-                // enable port clock
-                pcc_port.reg().write(|w| w.cgc().set_bit());
+                pcc_port.try_enable()?;
                 Ok(Parts {
                     $( $ptxi: $PTXi { _mode: PhantomData }, )+
                 })
@@ -229,8 +206,8 @@ pub mod $gpiox {
         /// ```
         pub fn free(self, pcc_port: &mut pcc::$PORTX) -> (pac::$GPIOX, pac::$PORTX) {
             use core::mem::transmute;
-            // release port clock
-            pcc_port.reg().write(|w| w.cgc().clear_bit());
+            // disable peripheral clock
+            pcc_port.disable();
             // return the ownership of $GPIOX and $PORTX
             unsafe { (transmute(()), transmute(())) }
         }
