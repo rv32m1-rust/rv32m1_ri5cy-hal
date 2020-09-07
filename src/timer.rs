@@ -1,20 +1,20 @@
-//! Low Power Timer (LPTMR)
+//! Timer modules
 
 use embedded_time::rate::*; 
 use crate::pac::LPTMR0; //{LPTMR0, LPTMR1};
 use core::convert::Infallible;
 
-pub struct Lptmr<T> {
+pub struct Timer<T> {
     tmr: T
 }
 
-impl Lptmr<LPTMR0> {
+impl Timer<LPTMR0> {
     /// Initialize the timer 
     pub fn lptmr0(tmr: LPTMR0, /* clocks: ..., pcc: ... */) -> Self {
         /* enable clocks ... */
         // disable the timer
         (*tmr).csr.modify(|_r, w| w.ten().ten_0());
-        Lptmr { tmr }
+        Self { tmr }
     }
 
     /// Start a new countdown timer
@@ -74,11 +74,11 @@ impl CountDown<LPTMR0> {
     }
 
     /// Stop the count down timer
-    pub fn stop(self) -> Lptmr<LPTMR0> {
+    pub fn stop(self) -> Timer<LPTMR0> {
         // disable the timer
         (*self.tmr).csr.modify(|_r, w| w.ten().ten_0());
         // return ownership
-        Lptmr { tmr: self.tmr }
+        Timer { tmr: self.tmr }
     }
 
     /// Returns the number of ticks since the last update event.

@@ -2,7 +2,7 @@
 #![no_main]
 extern crate panic_halt;
 
-use rv32m1_ri5cy_hal::{pac, prelude::*, lptmr::Lptmr};
+use rv32m1_ri5cy_hal::{pac, prelude::*, timer::Timer};
 use embedded_time::rate::*;
 
 #[riscv_rt::entry]
@@ -11,7 +11,7 @@ fn main() -> ! {
     let mut pcc0 = cp.PCC0.constrain();
     let gpioa = (cp.GPIOA, cp.PORTA).split(&mut pcc0.porta).unwrap();
 
-    let lptmr = Lptmr::lptmr0(cp.LPTMR0);
+    let lptmr = Timer::lptmr0(cp.LPTMR0);
     let mut countdown = lptmr.start_count_down(1_000_000.Hz());
 
     // The red led light is connected to pta24 on vega board.

@@ -7,9 +7,9 @@
 
 pub use rv32m1_ri5cy_pac as pac;
 pub mod gpio;
-pub mod lptmr;
 pub mod pcc;
 pub mod serial;
+pub mod timer;
 pub mod tstmr;
 
 pub mod prelude {
