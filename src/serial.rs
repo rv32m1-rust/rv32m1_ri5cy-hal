@@ -2,7 +2,7 @@
 //! 
 //! This serial module is based on on-chip Low Power Universal Asynchronous Receiver/Transmitter (LPUART).
 use crate::{pac, pcc::{self, EnableError}};
-use embedded_time::rate::{Hertz, Baud};
+use embedded_time::rate::{Generic, Rate, Fraction, Hertz, Baud};
 
 pub struct Clocks {
     freq: Hertz,
@@ -128,31 +128,38 @@ impl<PINS> Serial<pac::LPUART0, PINS> {
     }
 }
 
+const ONE: Fraction = Fraction::new(1, 1);
+
 // OSR in [4, 32], SBR in [1, 8191]. Baud = Clock / ((OSR + 1) * SBR)
 fn calculate_osr_sbr_from_baudrate(source_clock: Hertz, target_baud: Baud) -> (u8, u16, Baud) {
-    let mut baud_diff = target_baud;
-    let (mut osr, mut sbr): (usize, usize) = (0, 0);
+    let source_clock_hz = source_clock.to_generic::<u32>(ONE)
+        .expect("convert source clock to hertz");
+    let source_clock_hz = *source_clock_hz.integer();
+    let target_baud_bps = target_baud.to_generic::<u32>(ONE)
+        .expect("convert target baudrate to bps");
+    let target_baud_bps = *target_baud_bps.integer();
+    let mut baud_diff_bps = target_baud_bps;
+    let (mut osr, mut sbr): (u32, u32) = (0, 0);
     for osr_tmp in 4..=32 {
-        // let mut sbr_tmp = source_clock / (target_baud * osr_tmp);
-        // if sbr_tmp == 0 {
-        //     sbr_tmp = 1;
-        // }
-        // let calc_baud = source_clock / (osr_tmp * sbr_tmp);
-        // let mut tmp_diff = calc_baud - target_baud;
-        // if tmp_diff > target_baud - (source_clock / (osr_tmp * (sbr_tmp + 1))) {
-        //     tmp_diff = target_baud - (source_clock / (osr_tmp * (sbr_tmp + 1)));
-        //     sbr_tmp += 1;
-        // }
-        // if tmp_diff < baud_diff {
-        //     baud_diff = tmp_diff;
-        //     osr = osr_tmp;
-        //     sbr = sbr_tmp;
-        // }
-        todo!()
+        let mut sbr_tmp: u32 = source_clock_hz / target_baud_bps * osr_tmp;
+        if sbr_tmp == 0 {
+            sbr_tmp = 1;
+        }
+        let calc_baud_bps = source_clock_hz / (osr_tmp * sbr_tmp);
+        let mut tmp_diff_bps = calc_baud_bps - target_baud_bps;
+        if tmp_diff_bps > target_baud_bps - (source_clock_hz / (osr_tmp * (sbr_tmp + 1))) {
+            tmp_diff_bps = target_baud_bps - (source_clock_hz / (osr_tmp * (sbr_tmp + 1)));
+            sbr_tmp += 1;
+        }
+        if tmp_diff_bps < baud_diff_bps {
+            baud_diff_bps = tmp_diff_bps;
+            osr = osr_tmp;
+            sbr = sbr_tmp;
+        }
     }
     assert!(osr >= 4 && osr <= 32);
     assert!(sbr >= 1 && sbr <= 8191);
-    (osr as u8, sbr as u16, baud_diff)
+    (osr as u8, sbr as u16, Baud::new(baud_diff_bps))
 }
 
 /// Serial pins - DO NOT IMPLEMENT THIS TRAIT
