@@ -28,12 +28,14 @@ pub enum Error {
     Parity,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Parity {
     ParityNone,
     ParityEven,
     ParityOdd,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum StopBits {
     /// 1 stop bit
     STOP1,
@@ -41,6 +43,7 @@ pub enum StopBits {
     STOP2,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 /// Order of the bits that are transmitted and received on the wire.
 pub enum Order {
     /// LSB (bit 0) is the first bit that is transmitted following that start bit
@@ -49,6 +52,7 @@ pub enum Order {
     MsbFirst,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Config {
     pub baudrate: Baud,
     pub parity: Parity,
@@ -94,12 +98,12 @@ impl<PINS> Serial<pac::LPUART0, PINS> {
         };
         lpuart0.stat.write(|w| w.msbf().bit(msbf));
         // 4. set CTRL control register
-        let mode_bit = stop_bits; // true -> 2 bits -> 9 bit word
         let (parity_enable, parity_type) = match config.parity {
             Parity::ParityNone => (false, false),
             Parity::ParityEven => (true, false),
             Parity::ParityOdd => (true, true),
         };
+        let mode_bit = config.parity != Parity::ParityNone; // true -> 1 parity bit -> 9 bit word
         lpuart0.ctrl.write(|w| w
             .te().set_bit()
             .re().set_bit()
@@ -112,7 +116,12 @@ impl<PINS> Serial<pac::LPUART0, PINS> {
     }
 
     pub fn release(self, pcc_lpuart: &mut pcc::LPUART0) -> (pac::LPUART0, PINS) {
-        // disable the peripheral
+        // close the peripheral
+        self.lpuart.ctrl.write(|w| w
+            .te().clear_bit()
+            .re().clear_bit()
+        );
+        // disable the clock
         pcc_lpuart.disable();
         // return ownership of peripherals
         (self.lpuart, self.pins)
