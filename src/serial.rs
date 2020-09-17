@@ -2,7 +2,7 @@
 //! 
 //! This serial module is based on on-chip Low Power Universal Asynchronous Receiver/Transmitter (LPUART).
 use crate::{pac, pcc::{self, EnableError}};
-use embedded_time::rate::{Generic, Rate, Fraction, Hertz, Baud};
+use embedded_time::rate::{Rate, Fraction, Hertz, Baud};
 
 pub struct Clocks {
     freq: Hertz,
@@ -60,7 +60,7 @@ pub struct Config {
     pub order: Order,
 }
 
-impl<PINS> Serial<pac::LPUART0, PINS> {
+impl<PINS: Pins<pac::LPUART0>> Serial<pac::LPUART0, PINS> {
     pub fn lpuart0(
         lpuart0: pac::LPUART0,
         pins: PINS,
@@ -126,6 +126,24 @@ impl<PINS> Serial<pac::LPUART0, PINS> {
         // return ownership of peripherals
         (self.lpuart, self.pins)
     }
+
+    pub fn split(self) -> (Transmit<pac::LPUART0, PINS::Transmit>, Receive<pac::LPUART0, PINS::Receive>) {
+        let (t_pins, r_pins) = self.pins.split();
+        // todo: underlying shared structure
+        (Transmit { uart: self.lpuart, pins: t_pins}, Receive { uart: todo!(), pins: r_pins })
+    }
+}
+
+// todo: impl drop for transmit / receive 
+
+pub struct Transmit<UART, PINS> {
+    uart: UART,
+    pins: PINS
+}
+
+pub struct Receive<UART, PINS> {
+    uart: UART,
+    pins: PINS
 }
 
 const ONE: Fraction = Fraction::new(1, 1);
@@ -163,7 +181,11 @@ fn calculate_osr_sbr_from_baudrate(source_clock: Hertz, target_baud: Baud) -> (u
 }
 
 /// Serial pins - DO NOT IMPLEMENT THIS TRAIT
-pub unsafe trait Pins<UART> {}
+pub unsafe trait Pins<UART> {
+    type Transmit;
+    type Receive;
+    fn split(self) -> (Self::Transmit, Self::Receive);
+}
 
 impl<PINS> embedded_hal::serial::Write<u8> for Serial<pac::LPUART0, PINS> {
     /// Write error
