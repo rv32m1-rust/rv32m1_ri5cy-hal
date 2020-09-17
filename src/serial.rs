@@ -3,14 +3,15 @@
 //! This serial module is based on on-chip Low Power Universal Asynchronous Receiver/Transmitter (LPUART).
 use crate::{pac, pcc::{self, EnableError}};
 use embedded_time::rate::{Rate, Fraction, Hertz, Baud};
+use core::{mem, marker::PhantomData};
 
 pub struct Clocks {
     freq: Hertz,
 } // todo
 
 /// Serial abstraction
-pub struct Serial<LPUART, PINS> {
-    lpuart: LPUART,
+pub struct Serial<UART, PINS> {
+    uart: PhantomData<UART>,
     pins: PINS,
 }
 
@@ -112,42 +113,66 @@ impl<PINS: Pins<pac::LPUART0>> Serial<pac::LPUART0, PINS> {
             .m().bit(mode_bit)
         );
         // 5. finished, return ownership
-        Ok(Serial { lpuart: lpuart0, pins })
+        Ok(Serial { uart: PhantomData, pins })
     }
 
     pub fn release(self, pcc_lpuart: &mut pcc::LPUART0) -> (pac::LPUART0, PINS) {
+        // note(unsafe): owned type
+        let lpuart = unsafe { mem::transmute::<_, pac::LPUART0>(()) };
         // close the peripheral
-        self.lpuart.ctrl.write(|w| w
+        lpuart.ctrl.write(|w| w
             .te().clear_bit()
             .re().clear_bit()
         );
         // disable the clock
         pcc_lpuart.disable();
         // return ownership of peripherals
-        (self.lpuart, self.pins)
+        (lpuart, self.pins)
     }
 
-    pub fn split(self) -> (Transmit<pac::LPUART0, PINS::Transmit>, Receive<pac::LPUART0, PINS::Receive>) {
-        let (t_pins, r_pins) = self.pins.split();
-        // todo: underlying shared structure
-        (Transmit { uart: self.lpuart, pins: t_pins}, Receive { uart: todo!(), pins: r_pins })
+    pub fn split(self) -> (Transmit<pac::LPUART0, PINS>, Receive<pac::LPUART0, PINS>) {
+        (Transmit { uart: PhantomData, pins: PhantomData }, Receive { uart: PhantomData, pins: PhantomData })
     }
 
-    pub fn merge(tx: Transmit<pac::LPUART0, PINS::Transmit>, rx: Receive<pac::LPUART0, PINS::Receive>) -> Self {
-        Serial { lpuart: todo!(), pins: PINS::merge(tx.pins, rx.pins) }
-    }
+    // pub fn merge(tx: Transmit<pac::LPUART0, PINS>, rx: Receive<pac::LPUART0, PINS>) -> Self {
+    //     Serial { uart: PhantomData, pins: tx.pins }
+    // }
 }
 
-// todo: impl drop for transmit / receive 
-
 pub struct Transmit<UART, PINS> {
-    uart: UART,
-    pins: PINS
+    uart: PhantomData<UART>,
+    pins: PhantomData<PINS>,
+}
+
+impl<UART, PINS> Drop for Transmit<UART, PINS> {
+    fn drop(&mut self) {
+        let lpuart = unsafe { mem::transmute::<_, pac::LPUART0>(()) };
+        lpuart.ctrl.write(|w| w
+            .te().clear_bit()
+        );
+        let pcc_lpuart = unsafe { mem::transmute::<_, pcc::LPUART0>(()) };
+        if lpuart.ctrl.read().re().bit_is_clear() {
+            pcc_lpuart.disable();
+        }
+    }
 }
 
 pub struct Receive<UART, PINS> {
-    uart: UART,
-    pins: PINS
+    uart: PhantomData<UART>,
+    pins: PhantomData<PINS>,
+}
+
+impl<UART, PINS> Drop for Receive<UART, PINS> {
+    fn drop(&mut self) {
+        let lpuart = unsafe { mem::transmute::<_, pac::LPUART0>(()) };
+        lpuart.ctrl.write(|w| w
+            .re().clear_bit()
+        );
+        let pcc_lpuart = unsafe { mem::transmute::<_, pcc::LPUART0>(()) };
+        if lpuart.ctrl.read().te().bit_is_clear() {
+            pcc_lpuart.disable();
+        }
+    }
 }
 
 const ONE: Fraction = Fraction::new(1, 1);
@@ -185,12 +210,7 @@ fn calculate_osr_sbr_from_baudrate(source_clock: Hertz, target_baud: Baud) -> (u
 }
 
 /// Serial pins - DO NOT IMPLEMENT THIS TRAIT
-pub unsafe trait Pins<UART> {
-    type Transmit;
-    type Receive;
-    fn split(self) -> (Self::Transmit, Self::Receive);
-    fn merge(tx: Self::Transmit, rx: Self::Receive) -> Self;
-}
+pub unsafe trait Pins<UART> {}
 
 impl<PINS> embedded_hal::serial::Write<u8> for Serial<pac::LPUART0, PINS> {
     /// Write error
