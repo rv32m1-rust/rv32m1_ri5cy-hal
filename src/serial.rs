@@ -132,6 +132,10 @@ impl<PINS: Pins<pac::LPUART0>> Serial<pac::LPUART0, PINS> {
         // todo: underlying shared structure
         (Transmit { uart: self.lpuart, pins: t_pins}, Receive { uart: todo!(), pins: r_pins })
     }
+
+    pub fn merge(tx: Transmit<pac::LPUART0, PINS::Transmit>, rx: Receive<pac::LPUART0, PINS::Receive>) -> Self {
+        Serial { lpuart: todo!(), pins: PINS::merge(tx.pins, rx.pins) }
+    }
 }
 
 // todo: impl drop for transmit / receive 
@@ -185,6 +189,7 @@ pub unsafe trait Pins<UART> {
     type Transmit;
     type Receive;
     fn split(self) -> (Self::Transmit, Self::Receive);
+    fn merge(tx: Self::Transmit, rx: Self::Receive) -> Self;
 }
 
 impl<PINS> embedded_hal::serial::Write<u8> for Serial<pac::LPUART0, PINS> {
