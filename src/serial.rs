@@ -80,7 +80,7 @@ impl<PINS> Serial<pac::LPUART0, PINS> {
             StopBits::STOP2 => true,
         };
         // note(unsafe): value is valid from function
-        lpuart0.baud.modify(|_, w| unsafe { w
+        lpuart0.baud.write(|w| unsafe { w
             .osr().bits(osr - 1) // set osr bits
             .sbr().bits(sbr) // set sbr bits
             .bothedge().bit(both_edge)
@@ -92,7 +92,7 @@ impl<PINS> Serial<pac::LPUART0, PINS> {
             Order::LsbFirst => false,
             Order::MsbFirst => true,
         };
-        lpuart0.stat.modify(|_, w| w.msbf().bit(msbf));
+        lpuart0.stat.write(|w| w.msbf().bit(msbf));
         // 4. set CTRL control register
         let mode_bit = stop_bits; // true -> 2 bits -> 9 bit word
         let (parity_enable, parity_type) = match config.parity {
@@ -100,7 +100,7 @@ impl<PINS> Serial<pac::LPUART0, PINS> {
             Parity::ParityEven => (true, false),
             Parity::ParityOdd => (true, true),
         };
-        lpuart0.ctrl.modify(|_, w| w
+        lpuart0.ctrl.write(|w| w
             .te().set_bit()
             .re().set_bit()
             .pe().bit(parity_enable)
