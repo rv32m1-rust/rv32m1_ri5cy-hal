@@ -1,67 +1,19 @@
 //! Serial module
 //! 
 //! This serial module is based on on-chip Low Power Universal Asynchronous Receiver/Transmitter (LPUART).
-use crate::{pac, pcc::{self, EnableError}};
-use embedded_time::rate::{Rate, Fraction, Hertz, Baud};
+use crate::{
+    pac, 
+    gpio::{ALT3, gpiob::{PTB22, PTB24, PTB25, PTB26}},
+    scg::{Clocks, Source},
+    pcc::{self, EnableError},
+};
+use embedded_time::rate::{Extensions, Rate, Fraction, Hertz, Baud};
 use core::{mem, marker::PhantomData};
-
-pub struct Clocks {
-    freq: Hertz,
-} // todo
 
 /// Serial abstraction
 pub struct Serial<UART, PINS> {
     uart: PhantomData<UART>,
     pins: PINS,
-}
-
-/// Serial error
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum Error {
-    /// Framing error
-    Framing,
-    /// Noise error
-    Noise,
-    /// RX buffer overrun
-    Overrun,
-    /// Parity check error
-    Parity,
-}
-
-/// Parity check configuration
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Parity {
-    ParityNone,
-    ParityEven,
-    ParityOdd,
-}
-
-/// Stop bit configuration
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum StopBits {
-    /// 1 stop bit
-    STOP1,
-    /// 2 stop bits
-    STOP2,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-/// Order of the bits that are transmitted and received on the wire.
-pub enum Order {
-    /// LSB (bit 0) is the first bit that is transmitted following that start bit
-    LsbFirst,
-    /// MSB (bit 9, 8, 7 or 6) is the first bit that is transmitted following that start bit
-    MsbFirst,
-}
-
-/// Serial config
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Config {
-    pub baudrate: Baud,
-    pub parity: Parity,
-    pub stopbits: StopBits,
-    pub order: Order,
 }
 
 impl<PINS: Pins<pac::LPUART0>> Serial<pac::LPUART0, PINS> {
@@ -70,6 +22,7 @@ impl<PINS: Pins<pac::LPUART0>> Serial<pac::LPUART0, PINS> {
         pins: PINS,
         config: Config,
         clocks: Clocks,
+        source: Source,
         pcc_lpuart0: &mut pcc::LPUART0,
     ) -> Result<Self, EnableError> {
         // 1. peripheral power on
@@ -80,8 +33,9 @@ impl<PINS: Pins<pac::LPUART0>> Serial<pac::LPUART0, PINS> {
         lpuart0.global.write(|w| w.rst().clear_bit());
         // 2. set BAUD baudrate regitser value
         // calculate best config from baudrate settings
+        let source_clock = clocks.of_source(source);
         let (osr, sbr, baud_diff) = calculate_osr_sbr_from_baudrate(
-            clocks.freq, config.baudrate);
+            source_clock, config.baudrate);
         let both_edge = osr >= 4 && osr <= 7;
         let stop_bits = match config.stopbits {
             StopBits::STOP1 => false,
@@ -214,8 +168,75 @@ fn calculate_osr_sbr_from_baudrate(source_clock: Hertz, target_baud: Baud) -> (u
     (osr as u8, sbr as u16, Baud::new(baud_diff_bps))
 }
 
+
+/// Serial error
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum Error {
+    /// Framing error
+    Framing,
+    /// Noise error
+    Noise,
+    /// RX buffer overrun
+    Overrun,
+    /// Parity check error
+    Parity,
+}
+
+/// Parity check configuration
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Parity {
+    ParityNone,
+    ParityEven,
+    ParityOdd,
+}
+
+/// Stop bit configuration
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum StopBits {
+    /// 1 stop bit
+    STOP1,
+    /// 2 stop bits
+    STOP2,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+/// Order of the bits that are transmitted and received on the wire.
+pub enum Order {
+    /// LSB (bit 0) is the first bit that is transmitted following that start bit
+    LsbFirst,
+    /// MSB (bit 9, 8, 7 or 6) is the first bit that is transmitted following that start bit
+    MsbFirst,
+}
+
+/// Serial config
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct Config {
+    pub baudrate: Baud,
+    pub parity: Parity,
+    pub stopbits: StopBits,
+    pub order: Order,
+}
+
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            baudrate: 115_200_u32.Bd(),
+            parity: Parity::ParityNone,
+            stopbits: StopBits::STOP1,
+            order: Order::LsbFirst,
+        }
+    }
+}
+
 /// Serial pins - DO NOT IMPLEMENT THIS TRAIT
 pub unsafe trait Pins<UART> {}
+
+// PTB26<3>=LPUART0_TX, PTB25<3>=LPUART0_RX
+unsafe impl Pins<pac::LPUART0> for (PTB26<ALT3>, PTB25<ALT3>) {}
+
+// PTB26<3>=LPUART0_TX, PTB25<3>=LPUART0_RX, PTB24<3>=RTS, PTB22<3>=CTS
+unsafe impl Pins<pac::LPUART0> for (PTB26<ALT3>, PTB25<ALT3>, PTB24<ALT3>, PTB22<ALT3>) {}
 
 impl<PINS> embedded_hal::serial::Write<u8> for Serial<pac::LPUART0, PINS> {
     /// Write error

@@ -79,6 +79,27 @@ pub struct PushPull;
 /// Open-drain output (type state)
 pub struct OpenDrain;
 
+/// Alternate function 1 (type state)
+pub struct ALT1;
+
+/// Alternate function 2 (type state)
+pub struct ALT2;
+
+/// Alternate function 3 (type state)
+pub struct ALT3;
+
+/// Alternate function 4 (type state)
+pub struct ALT4;
+
+/// Alternate function 5 (type state)
+pub struct ALT5;
+
+/// Alternate function 6 (type state)
+pub struct ALT6;
+
+/// Alternate function 7 (type state)
+pub struct ALT7;
+
 /// Wraps a pin if its Pin Control Register (PCR) is locked
 pub struct Locked<T>(T);
 
