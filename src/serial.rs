@@ -1,4 +1,4 @@
-//! Serial module.
+//! Serial module
 //! 
 //! This serial module is based on on-chip Low Power Universal Asynchronous Receiver/Transmitter (LPUART).
 use crate::{pac, pcc::{self, EnableError}};
@@ -29,6 +29,7 @@ pub enum Error {
     Parity,
 }
 
+/// Parity check configuration
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Parity {
     ParityNone,
@@ -36,6 +37,7 @@ pub enum Parity {
     ParityOdd,
 }
 
+/// Stop bit configuration
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum StopBits {
     /// 1 stop bit
@@ -53,6 +55,7 @@ pub enum Order {
     MsbFirst,
 }
 
+/// Serial config
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Config {
     pub baudrate: Baud,
@@ -139,6 +142,7 @@ impl<PINS: Pins<pac::LPUART0>> Serial<pac::LPUART0, PINS> {
     // }
 }
 
+/// Transmit half of serial port
 pub struct Transmit<UART, PINS> {
     uart: PhantomData<UART>,
     pins: PhantomData<PINS>,
@@ -157,6 +161,7 @@ impl<UART, PINS> Drop for Transmit<UART, PINS> {
     }
 }
 
+/// Receive half of serial port
 pub struct Receive<UART, PINS> {
     uart: PhantomData<UART>,
     pins: PhantomData<PINS>,
