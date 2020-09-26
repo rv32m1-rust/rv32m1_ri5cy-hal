@@ -3,7 +3,7 @@
 //! This serial module is based on on-chip Low Power Universal Asynchronous Receiver/Transmitter (LPUART).
 use crate::{
     pac, 
-    gpio::{ALT3, gpiob::{PTB22, PTB24, PTB25, PTB26}},
+    // gpio::{ALT3, gpiob::{PTB22, PTB24, PTB25, PTB26}}, // todo: resume
     scg::{Clocks, Source},
     pcc::{self, EnableError},
 };
@@ -34,7 +34,7 @@ impl<PINS: Pins<pac::LPUART0>> Serial<pac::LPUART0, PINS> {
         // 2. set BAUD baudrate regitser value
         // calculate best config from baudrate settings
         let source_clock = clocks.of_source(source);
-        let (osr, sbr, baud_diff) = calculate_osr_sbr_from_baudrate(
+        let (osr, sbr, _baud_diff) = calculate_osr_sbr_from_baudrate(
             source_clock, config.baudrate);
         let both_edge = osr >= 4 && osr <= 7;
         let stop_bits = match config.stopbits {
@@ -233,10 +233,10 @@ impl Default for Config {
 pub unsafe trait Pins<UART> {}
 
 // PTB26<3>=LPUART0_TX, PTB25<3>=LPUART0_RX
-unsafe impl Pins<pac::LPUART0> for (PTB26<ALT3>, PTB25<ALT3>) {}
+// unsafe impl Pins<pac::LPUART0> for (PTB26<ALT3>, PTB25<ALT3>) {}
 
-// PTB26<3>=LPUART0_TX, PTB25<3>=LPUART0_RX, PTB24<3>=RTS, PTB22<3>=CTS
-unsafe impl Pins<pac::LPUART0> for (PTB26<ALT3>, PTB25<ALT3>, PTB24<ALT3>, PTB22<ALT3>) {}
+// // PTB26<3>=LPUART0_TX, PTB25<3>=LPUART0_RX, PTB24<3>=RTS, PTB22<3>=CTS
+// unsafe impl Pins<pac::LPUART0> for (PTB26<ALT3>, PTB25<ALT3>, PTB24<ALT3>, PTB22<ALT3>) {}
 
 impl<PINS> embedded_hal::serial::Write<u8> for Serial<pac::LPUART0, PINS> {
     /// Write error
