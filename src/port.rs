@@ -111,9 +111,13 @@ $(
             );
             $PTXi { pcr: self.pcr, _function: PhantomData }
         }
-        
-        /* ALT1: please use into_push_pull_output etc in gpio modules */
-        
+        /// Configures the pin to operate as alternate function 1
+        pub fn into_af1(self) -> $PTXi<ALT1> {
+            self.pcr.write(|w| 
+                w.mux().mux_1() // Pin Mux Control: ALT1
+            );
+            $PTXi { pcr: self.pcr, _function: PhantomData }
+        }
         /// Configures the pin to operate as alternate function 2
         pub fn into_af2(self) -> $PTXi<ALT2> {
             self.pcr.write(|w| 
