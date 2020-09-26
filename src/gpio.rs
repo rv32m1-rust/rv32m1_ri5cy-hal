@@ -1,3 +1,5 @@
+//! General-Purpose Input/Output (GPIO)
+
 use crate::port::*;
 use core::marker::PhantomData;
 
