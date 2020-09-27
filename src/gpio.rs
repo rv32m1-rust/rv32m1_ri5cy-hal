@@ -33,88 +33,121 @@ pub struct PushPull;
 /// Open-drain output (type state)
 pub struct OpenDrain;
 
-mod gpioa {
-    use crate::port::porta::*;
+macro_rules! gpio_impl {
+    ($GPIOX: ident, $gpiox: ident, $portx: ident, [
+        $( $PTXi: ident: $i: expr, )+
+    ]) => {
+mod $gpiox {
+    use crate::port::$portx::*;
     use super::{Gpio, Output, PushPull, OpenDrain, Input, Floating, PullUp, PullDown};
     use super::ALT1;
     use crate::pac;
     use core::marker::PhantomData;
 
-    #[inline] fn modify_gpioa_direction_out(gpioa: &mut pac::GPIOA, idx: usize) {
-        gpioa.pddr.modify(|r, w| unsafe { 
+    #[inline] fn modify_gpio_direction_out($gpiox: &mut pac::$GPIOX, idx: usize) {
+        $gpiox.pddr.modify(|r, w| unsafe { 
             w.pdd().bits(r.pdd().bits() | (1 << idx))
         });
     }
 
-    #[inline] fn modify_gpioa_direction_in(gpioa: &mut pac::GPIOA, idx: usize) {
-        gpioa.pddr.modify(|r, w| unsafe { 
+    #[inline] fn modify_gpio_direction_in($gpiox: &mut pac::$GPIOX, idx: usize) {
+        $gpiox.pddr.modify(|r, w| unsafe { 
             w.pdd().bits(r.pdd().bits() & !(1 << idx))
         });
     }
-
-    impl<AF> PTA23<AF> {
+$(
+    impl<AF> $PTXi<AF> {
         /// Configures the pin to operate as a push-pull output pin.
-        pub fn into_push_pull_output(self, gpioa: &mut pac::GPIOA) -> Gpio<PTA23<ALT1>, Output<PushPull>> {
-            modify_gpioa_direction_out(gpioa, 23);
+        pub fn into_push_pull_output(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Output<PushPull>> {
+            modify_gpio_direction_out($gpiox, $i);
             let pin = self.into_af1_no_open_drain();
             Gpio { pin, _mode: PhantomData }
         }
         /// Configures the pin to operate as an open-drain output pin.
-        pub fn into_open_drain_output(self, gpioa: &mut pac::GPIOA) -> Gpio<PTA23<ALT1>, Output<OpenDrain>> {
-            modify_gpioa_direction_out(gpioa, 23);
+        pub fn into_open_drain_output(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Output<OpenDrain>> {
+            modify_gpio_direction_out($gpiox, $i);
             let pin = self.into_af1_with_open_drain();
             Gpio { pin, _mode: PhantomData }
         }
         /// Configures the pin to operate as a floating input pin.
-        pub fn into_floating_input(self, gpioa: &mut pac::GPIOA) -> Gpio<PTA23<ALT1>, Input<Floating>> {
-            modify_gpioa_direction_in(gpioa, 23);
+        pub fn into_floating_input(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Input<Floating>> {
+            modify_gpio_direction_in($gpiox, $i);
             let pin = self.into_af1_no_pull();
             Gpio { pin, _mode: PhantomData }
         }
         /// Configures the pin to operate as a pull-up input pin.
-        pub fn into_pull_up_input(self, gpioa: &mut pac::GPIOA) -> Gpio<PTA23<ALT1>, Input<PullUp>> {
-            modify_gpioa_direction_in(gpioa, 23);
+        pub fn into_pull_up_input(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Input<PullUp>> {
+            modify_gpio_direction_in($gpiox, $i);
             let pin = self.into_af1_pull_up();
             Gpio { pin, _mode: PhantomData }
         }
         /// Configures the pin to operate as a pull-down input pin.
-        pub fn into_pull_down_input(self, gpioa: &mut pac::GPIOA) -> Gpio<PTA23<ALT1>, Input<PullDown>> {
-            modify_gpioa_direction_in(gpioa, 23);
+        pub fn into_pull_down_input(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Input<PullDown>> {
+            modify_gpio_direction_in($gpiox, $i);
             let pin = self.into_af1_pull_down();
             Gpio { pin, _mode: PhantomData }
         }
     }
 
-    impl<MODE> Gpio<PTA23<ALT1>, MODE> {
+    impl<MODE> Gpio<$PTXi<ALT1>, MODE> {
         /// Configures the pin to operate as a push-pull output pin.
-        pub fn into_push_pull_output(self, gpioa: &mut pac::GPIOA) -> Gpio<PTA23<ALT1>, Output<PushPull>> {
-            modify_gpioa_direction_out(gpioa, 23);
+        pub fn into_push_pull_output(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Output<PushPull>> {
+            modify_gpio_direction_out($gpiox, $i);
             let pin = self.pin.into_af1_no_open_drain();
             Gpio { pin, _mode: PhantomData }
         }
         /// Configures the pin to operate as an open-drain output pin.
-        pub fn into_open_drain_output(self, gpioa: &mut pac::GPIOA) -> Gpio<PTA23<ALT1>, Output<OpenDrain>> {
-            modify_gpioa_direction_out(gpioa, 23);
+        pub fn into_open_drain_output(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Output<OpenDrain>> {
+            modify_gpio_direction_out($gpiox, $i);
             let pin = self.pin.into_af1_with_open_drain();
             Gpio { pin, _mode: PhantomData }
         }
         /// Configures the pin to operate as a floating input pin.
-        pub fn into_floating_input(self, gpioa: &mut pac::GPIOA) -> Gpio<PTA23<ALT1>, Input<Floating>> {
-            modify_gpioa_direction_in(gpioa, 23);
+        pub fn into_floating_input(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Input<Floating>> {
+            modify_gpio_direction_in($gpiox, $i);
             let pin = self.pin.into_af1_no_pull();
             Gpio { pin, _mode: PhantomData }
         }
         /// Configures the pin to operate as a pull-up input pin.
-        pub fn into_pull_up_input(self, gpioa: &mut pac::GPIOA) -> Gpio<PTA23<ALT1>, Input<PullUp>> {
-            modify_gpioa_direction_in(gpioa, 23);
+        pub fn into_pull_up_input(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Input<PullUp>> {
+            modify_gpio_direction_in($gpiox, $i);
             let pin = self.pin.into_af1_pull_up();
             Gpio { pin, _mode: PhantomData }
         }
         /// Configures the pin to operate as a pull-down input pin.
-        pub fn into_pull_down_input(self, gpioa: &mut pac::GPIOA) -> Gpio<PTA23<ALT1>, Input<PullDown>> {
-            modify_gpioa_direction_in(gpioa, 23);
+        pub fn into_pull_down_input(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Input<PullDown>> {
+            modify_gpio_direction_in($gpiox, $i);
             let pin = self.pin.into_af1_pull_down();
             Gpio { pin, _mode: PhantomData }
         }
     }
+)+
 }
+    };
+}
+
+gpio_impl! { GPIOA, gpioa, porta, [
+    PTA0: 0,
+    PTA1: 1,
+    PTA2: 2,
+    PTA3: 3,
+    PTA4: 4,
+    PTA9: 9,
+    PTA10: 10,
+    PTA14: 14,
+    PTA15: 15,
+    PTA17: 17,
+    PTA18: 18,
+    PTA19: 19,
+    PTA20: 20,
+    PTA21: 21,
+    PTA22: 22,
+    PTA23: 23,
+    PTA24: 24,
+    PTA25: 25,
+    PTA26: 26,
+    PTA27: 27,
+    PTA28: 28,
+    PTA30: 30,
+    PTA31: 31,
+] }
