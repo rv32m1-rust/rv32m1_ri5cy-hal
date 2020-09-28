@@ -6,9 +6,9 @@
 #![no_std]
 
 pub use rv32m1_ri5cy_pac as pac;
-pub mod gpio;
 pub mod pcc;
 pub mod port;
+pub mod gpio;
 pub mod scg;
 pub mod serial;
 pub mod timer;
