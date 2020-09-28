@@ -256,8 +256,19 @@ unsafe impl CtsPin<pac::LPUART0> for PTC9<ALT3> {}
 /// Serial pins - DO NOT IMPLEMENT THIS TRAIT
 pub unsafe trait Pins<UART> {}
 
-unsafe impl<UART, TX: TxPin<UART>, RX: RxPin<UART>> Pins<UART> for (TX, RX) {}
-unsafe impl<UART, TX: TxPin<UART>, RX: RxPin<UART>, RTS: RxPin<UART>, CTS: RxPin<UART>> Pins<UART> for (TX, RX, RTS, CTS) {}
+unsafe impl<UART, TX, RX> Pins<UART> for (TX, RX) 
+where 
+    TX: TxPin<UART>, 
+    RX: RxPin<UART>
+{}
+
+unsafe impl<UART, TX, RX, RTS, CTS> Pins<UART> for (TX, RX, RTS, CTS) 
+where 
+    TX: TxPin<UART>, 
+    RX: RxPin<UART>, 
+    RTS: RxPin<UART>, 
+    CTS: RxPin<UART>
+{}
 
 impl<PINS> embedded_hal::serial::Write<u8> for Serial<pac::LPUART0, PINS> {
     /// Write error
