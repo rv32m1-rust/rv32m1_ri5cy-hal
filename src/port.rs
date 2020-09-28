@@ -104,7 +104,7 @@ $(
     }
 
     impl<AF> $PTXi<AF> {
-        /// Configures the pin to operate as alternate function 0
+        #[doc = "Configures the pin to operate as alternate function 0"]
         pub fn into_af0(self) -> $PTXi<ALT0> { // on some pins this is named into_disabled
             self.pcr.write(|w| 
                 w.mux().mux_0() // Pin Mux Control: ALT0
