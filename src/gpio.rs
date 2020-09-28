@@ -57,7 +57,7 @@ pub struct PushPull;
 pub struct OpenDrain;
 
 macro_rules! gpio_impl {
-    ($GPIOX: ident, $gpiox: ident, $portx: ident, [
+    ($GPIOX: ident, $gpiox: ident, $gpioy: ident, $portx: ident, [
         $( $PTXi: ident: $i: expr, )+
     ]) => {
 mod $gpiox {
@@ -65,7 +65,9 @@ mod $gpiox {
     use super::{Gpio, Output, PushPull, OpenDrain, Input, Floating, PullUp, PullDown};
     use super::ALT1;
     use crate::pac;
+    use embedded_hal::digital::{OutputPin, StatefulOutputPin, ToggleableOutputPin, InputPin};
     use core::marker::PhantomData;
+    use core::convert::Infallible;
 
     #[inline] fn modify_gpio_direction_out($gpiox: &mut pac::$GPIOX, idx: usize) {
         $gpiox.pddr.modify(|r, w| unsafe { 
@@ -78,6 +80,9 @@ mod $gpiox {
             w.pdd().bits(r.pdd().bits() & !(1 << idx))
         });
     }
+
+    const GPIO_PTR: *const pac::$gpioy::RegisterBlock = pac::$GPIOX::ptr();
+
 $(
     impl<AF> $PTXi<AF> {
         /// Configures the pin to operate as a push-pull output pin.
@@ -144,6 +149,63 @@ $(
             Gpio { pin, _mode: PhantomData }
         }
     }
+
+    impl<MODE> OutputPin for Gpio<$PTXi<ALT1>, Output<MODE>> {
+        type Error = Infallible;
+
+        fn try_set_low(&mut self) -> Result<(), Self::Error> {
+            unsafe { &*GPIO_PTR }.pcor.write(|w| unsafe { w.ptco().bits(1 << $i) });
+            Ok(())
+        }
+
+        fn try_set_high(&mut self) -> Result<(), Self::Error> {
+            unsafe { &*GPIO_PTR }.psor.write(|w| unsafe { w.ptso().bits(1 << $i) });
+            Ok(())
+        }
+    }
+
+    impl<MODE> StatefulOutputPin for Gpio<$PTXi<ALT1>, Output<MODE>> {
+        fn try_is_set_high(&self) -> Result<bool, Infallible> {
+            Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & (1 << $i) != 0)
+        }
+
+        fn try_is_set_low(&self) -> Result<bool, Infallible> {
+            Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & (1 << $i) == 0)
+        }
+    }
+
+    impl<MODE> ToggleableOutputPin for Gpio<$PTXi<ALT1>, Output<MODE>> {
+        type Error = Infallible;
+
+        fn try_toggle(&mut self) -> Result<(), Self::Error> {
+            unsafe { &*GPIO_PTR }.ptor.write(|w| unsafe { w.ptto().bits(1 << $i) });
+            Ok(())
+        }
+    }
+
+    impl<MODE> InputPin for Gpio<$PTXi<ALT1>, Input<MODE>> {
+        type Error = Infallible;
+
+        fn try_is_high(&self) -> Result<bool, Self::Error> {
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0)
+        }
+
+        fn try_is_low(&self) -> Result<bool, Self::Error> {
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) == 0)
+        }
+    }
+
+    impl InputPin for Gpio<$PTXi<ALT1>, Output<OpenDrain>> {
+        type Error = Infallible;
+
+        fn try_is_high(&self) -> Result<bool, Self::Error> {
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0)
+        }
+
+        fn try_is_low(&self) -> Result<bool, Self::Error> {
+            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) == 0)
+        }
+    }
 )+
 }
     };
@@ -190,7 +252,7 @@ $(
     }
 }
 
-gpio_impl! { GPIOA, gpioa, porta, [
+gpio_impl! { GPIOA, gpioa, gpioa, porta, [
     PTA0: 0,
     PTA1: 1,
     PTA2: 2,
@@ -216,7 +278,7 @@ gpio_impl! { GPIOA, gpioa, porta, [
     PTA31: 31,
 ] }
 
-gpio_impl! { GPIOB, gpiob, portb, [
+gpio_impl! { GPIOB, gpiob, gpioa, portb, [
     PTB0: 0,
     PTB1: 1,
     PTB2: 2,
@@ -248,7 +310,7 @@ gpio_impl! { GPIOB, gpiob, portb, [
     PTB31: 31,
 ] }
 
-gpio_impl! { GPIOC, gpioc, portc, [
+gpio_impl! { GPIOC, gpioc, gpioa, portc, [
     PTC0: 0,
     PTC1: 1,
     PTC7: 7,
@@ -264,7 +326,7 @@ gpio_impl! { GPIOC, gpioc, portc, [
     PTC30: 30,
 ] }
 
-gpio_impl! { GPIOD, gpiod, portd, [
+gpio_impl! { GPIOD, gpiod, gpioa, portd, [
     PTD0: 0,
     PTD1: 1,
     PTD2: 2,
