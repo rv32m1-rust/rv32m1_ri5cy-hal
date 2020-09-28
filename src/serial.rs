@@ -3,7 +3,7 @@
 //! This serial module is based on on-chip Low Power Universal Asynchronous Receiver/Transmitter (LPUART).
 use crate::{
     pac, 
-    // gpio::{ALT3, gpiob::{PTB22, PTB24, PTB25, PTB26}}, // todo: resume
+    port::{ALT2, ALT3, porta::*, portb::*, portc::*/*, portd::**/},
     scg::{Clocks, Source},
     pcc::{self, EnableError},
 };
@@ -229,14 +229,35 @@ impl Default for Config {
     }
 }
 
+/// Serial transmit pins - DO NOT IMPLEMENT THIS TRAIT
+pub unsafe trait TxPin<UART> {}
+/// Serial receive pins - DO NOT IMPLEMENT THIS TRAIT
+pub unsafe trait RxPin<UART> {}
+/// Serial rts pins - DO NOT IMPLEMENT THIS TRAIT
+pub unsafe trait RtsPin<UART> {}
+/// Serial cts pins - DO NOT IMPLEMENT THIS TRAIT
+pub unsafe trait CtsPin<UART> {}
+
+unsafe impl TxPin<pac::LPUART0> for PTA3<ALT2> {}
+unsafe impl RxPin<pac::LPUART0> for PTA2<ALT2> {}
+unsafe impl RtsPin<pac::LPUART0> for PTA4<ALT2> {}
+unsafe impl CtsPin<pac::LPUART0> for PTA1<ALT2> {}
+
+unsafe impl TxPin<pac::LPUART0> for PTB26<ALT3> {}
+unsafe impl RxPin<pac::LPUART0> for PTB25<ALT3> {}
+unsafe impl RtsPin<pac::LPUART0> for PTB24<ALT3> {}
+unsafe impl CtsPin<pac::LPUART0> for PTB22<ALT3> {}
+
+unsafe impl TxPin<pac::LPUART0> for PTC8<ALT3> {}
+unsafe impl RxPin<pac::LPUART0> for PTC7<ALT3> {}
+unsafe impl RtsPin<pac::LPUART0> for PTC10<ALT3> {}
+unsafe impl CtsPin<pac::LPUART0> for PTC9<ALT3> {}
+
 /// Serial pins - DO NOT IMPLEMENT THIS TRAIT
 pub unsafe trait Pins<UART> {}
 
-// PTB26<3>=LPUART0_TX, PTB25<3>=LPUART0_RX
-// unsafe impl Pins<pac::LPUART0> for (PTB26<ALT3>, PTB25<ALT3>) {}
-
-// // PTB26<3>=LPUART0_TX, PTB25<3>=LPUART0_RX, PTB24<3>=RTS, PTB22<3>=CTS
-// unsafe impl Pins<pac::LPUART0> for (PTB26<ALT3>, PTB25<ALT3>, PTB24<ALT3>, PTB22<ALT3>) {}
+unsafe impl<UART, TX: TxPin<UART>, RX: RxPin<UART>> Pins<UART> for (TX, RX) {}
+unsafe impl<UART, TX: TxPin<UART>, RX: RxPin<UART>, RTS: RxPin<UART>, CTS: RxPin<UART>> Pins<UART> for (TX, RX, RTS, CTS) {}
 
 impl<PINS> embedded_hal::serial::Write<u8> for Serial<pac::LPUART0, PINS> {
     /// Write error
