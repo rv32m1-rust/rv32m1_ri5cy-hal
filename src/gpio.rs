@@ -2,6 +2,8 @@
 
 use crate::port::*;
 use core::marker::PhantomData;
+use core::convert::Infallible;
+use embedded_hal::digital::{OutputPin, StatefulOutputPin, ToggleableOutputPin, InputPin};
 
 /// Gpio wrapper
 pub struct Gpio<PIN, MODE> {
@@ -56,6 +58,115 @@ pub struct PushPull;
 /// Open-drain output (type state)
 pub struct OpenDrain;
 
+/// Port pin that is configured into ALT1 function
+///
+/// This trait should only be implemented by this HAL crate; user should not implement this trait.
+/// Application users should call functions provided by `Gpio` struct.
+pub trait Alt1Pin {
+    #[doc(hidden)]
+    type Gpio;
+    #[doc(hidden)]
+    fn configure_push_pull_output(self, gpio: &mut Self::Gpio) -> Self;
+    #[doc(hidden)]
+    fn configure_open_drain_output(self, gpio: &mut Self::Gpio) -> Self;
+    #[doc(hidden)]
+    fn configure_floating_input(self, gpio: &mut Self::Gpio) -> Self;
+    #[doc(hidden)]
+    fn configure_pull_up_input(self, gpio: &mut Self::Gpio) -> Self;
+    #[doc(hidden)]
+    fn configure_pull_down_input(self, gpio: &mut Self::Gpio) -> Self;
+    #[doc(hidden)]
+    fn set_low(&self);
+    #[doc(hidden)]
+    fn set_high(&self);
+    #[doc(hidden)]
+    fn is_set_high(&self) -> bool;
+    #[doc(hidden)]
+    fn toggle(&self);
+    #[doc(hidden)]
+    fn is_high(&self) -> bool;
+}
+
+impl<PIN: Alt1Pin, MODE> Gpio<PIN, MODE> {
+    /// Configures the pin to operate as a push-pull output pin.
+    pub fn into_push_pull_output(self, gpio: &mut PIN::Gpio) -> Gpio<PIN, Output<PushPull>> {
+        Gpio { pin: self.pin.configure_push_pull_output(gpio), _mode: PhantomData }
+    }
+    /// Configures the pin to operate as an open-drain output pin.
+    pub fn into_open_drain_output(self, gpio: &mut PIN::Gpio) -> Gpio<PIN, Output<OpenDrain>> {
+        Gpio { pin: self.pin.configure_open_drain_output(gpio), _mode: PhantomData }
+    }
+    /// Configures the pin to operate as a floating input pin.
+    pub fn into_floating_input(self, gpio: &mut PIN::Gpio) -> Gpio<PIN, Input<Floating>> {
+        Gpio { pin: self.pin.configure_floating_input(gpio), _mode: PhantomData }
+    }
+    /// Configures the pin to operate as a pull-up input pin.
+    pub fn into_pull_up_input(self, gpio: &mut PIN::Gpio) -> Gpio<PIN, Input<PullUp>> {
+        Gpio { pin: self.pin.configure_pull_up_input(gpio), _mode: PhantomData }
+    }
+    /// Configures the pin to operate as a pull-down input pin.
+    pub fn into_pull_down_input(self, gpio: &mut PIN::Gpio) -> Gpio<PIN, Input<PullDown>> {
+        Gpio { pin: self.pin.configure_pull_down_input(gpio), _mode: PhantomData }
+    }
+}
+
+impl<PIN: Alt1Pin, MODE> OutputPin for Gpio<PIN, Output<MODE>> {
+    type Error = Infallible;
+
+    fn try_set_low(&mut self) -> Result<(), Self::Error> {
+        self.pin.set_low();
+        Ok(())
+    }
+
+    fn try_set_high(&mut self) -> Result<(), Self::Error> {
+        self.pin.set_high();
+        Ok(())
+    }
+}
+
+impl<PIN: Alt1Pin, MODE> StatefulOutputPin for Gpio<PIN, Output<MODE>> {
+    fn try_is_set_high(&self) -> Result<bool, Infallible> {
+        Ok(self.pin.is_set_high())
+    }
+
+    fn try_is_set_low(&self) -> Result<bool, Infallible> {
+        Ok(!self.pin.is_set_high())
+    }
+}
+
+impl<PIN: Alt1Pin, MODE> ToggleableOutputPin for Gpio<PIN, Output<MODE>> {
+    type Error = Infallible;
+
+    fn try_toggle(&mut self) -> Result<(), Self::Error> {
+        self.pin.toggle();
+        Ok(())
+    }
+}
+
+impl<PIN: Alt1Pin, MODE> InputPin for Gpio<PIN, Input<MODE>> {
+    type Error = Infallible;
+
+    fn try_is_high(&self) -> Result<bool, Self::Error> {
+        Ok(self.pin.is_set_high())
+    }
+
+    fn try_is_low(&self) -> Result<bool, Self::Error> {
+        Ok(!self.pin.is_set_high())
+    }
+}
+
+impl<PIN: Alt1Pin> InputPin for Gpio<PIN, Output<OpenDrain>> {
+    type Error = Infallible;
+
+    fn try_is_high(&self) -> Result<bool, Self::Error> {
+        Ok(self.pin.is_set_high())
+    }
+
+    fn try_is_low(&self) -> Result<bool, Self::Error> {
+        Ok(!self.pin.is_set_high())
+    }
+}
+
 macro_rules! gpio_impl {
     ($GPIOX: ident, $gpiox: ident, $gpioy: ident, $portx: ident, [
         $( $PTXi: ident: $i: expr, )+
@@ -65,9 +176,7 @@ mod $gpiox {
     use super::{Gpio, Output, PushPull, OpenDrain, Input, Floating, PullUp, PullDown};
     use super::ALT1;
     use crate::pac;
-    use embedded_hal::digital::{OutputPin, StatefulOutputPin, ToggleableOutputPin, InputPin};
     use core::marker::PhantomData;
-    use core::convert::Infallible;
 
     #[inline] fn modify_gpio_direction_out($gpiox: &mut pac::$GPIOX, idx: usize) {
         $gpiox.pddr.modify(|r, w| unsafe { 
@@ -117,93 +226,42 @@ $(
         }
     }
 
-    impl<MODE> Gpio<$PTXi<ALT1>, MODE> {
-        /// Configures the pin to operate as a push-pull output pin.
-        pub fn into_push_pull_output(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Output<PushPull>> {
-            modify_gpio_direction_out($gpiox, $i);
-            let pin = self.pin.into_af1_no_open_drain();
-            Gpio { pin, _mode: PhantomData }
+    impl super::Alt1Pin for $PTXi<ALT1> {
+        type Gpio = pac::$GPIOX;
+        fn configure_push_pull_output(self, gpio: &mut Self::Gpio) -> Self {
+            modify_gpio_direction_out(gpio, $i);
+            self.into_af1_no_open_drain()
         }
-        /// Configures the pin to operate as an open-drain output pin.
-        pub fn into_open_drain_output(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Output<OpenDrain>> {
-            modify_gpio_direction_out($gpiox, $i);
-            let pin = self.pin.into_af1_with_open_drain();
-            Gpio { pin, _mode: PhantomData }
+        fn configure_open_drain_output(self, gpio: &mut Self::Gpio) -> Self {
+            modify_gpio_direction_out(gpio, $i);
+            self.into_af1_with_open_drain()
         }
-        /// Configures the pin to operate as a floating input pin.
-        pub fn into_floating_input(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Input<Floating>> {
-            modify_gpio_direction_in($gpiox, $i);
-            let pin = self.pin.into_af1_no_pull();
-            Gpio { pin, _mode: PhantomData }
+        fn configure_floating_input(self, gpio: &mut Self::Gpio) -> Self {
+            modify_gpio_direction_in(gpio, $i);
+            self.into_af1_no_pull()
         }
-        /// Configures the pin to operate as a pull-up input pin.
-        pub fn into_pull_up_input(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Input<PullUp>> {
-            modify_gpio_direction_in($gpiox, $i);
-            let pin = self.pin.into_af1_pull_up();
-            Gpio { pin, _mode: PhantomData }
+        fn configure_pull_up_input(self, gpio: &mut Self::Gpio) -> Self {
+            modify_gpio_direction_in(gpio, $i);
+            self.into_af1_pull_up()
         }
-        /// Configures the pin to operate as a pull-down input pin.
-        pub fn into_pull_down_input(self, $gpiox: &mut pac::$GPIOX) -> Gpio<$PTXi<ALT1>, Input<PullDown>> {
-            modify_gpio_direction_in($gpiox, $i);
-            let pin = self.pin.into_af1_pull_down();
-            Gpio { pin, _mode: PhantomData }
+        fn configure_pull_down_input(self, gpio: &mut Self::Gpio) -> Self {
+            modify_gpio_direction_in(gpio, $i);
+            self.into_af1_pull_down()
         }
-    }
-
-    impl<MODE> OutputPin for Gpio<$PTXi<ALT1>, Output<MODE>> {
-        type Error = Infallible;
-
-        fn try_set_low(&mut self) -> Result<(), Self::Error> {
+        fn set_low(&self) {
             unsafe { &*GPIO_PTR }.pcor.write(|w| unsafe { w.ptco().bits(1 << $i) });
-            Ok(())
         }
-
-        fn try_set_high(&mut self) -> Result<(), Self::Error> {
+        fn set_high(&self) {
             unsafe { &*GPIO_PTR }.psor.write(|w| unsafe { w.ptso().bits(1 << $i) });
-            Ok(())
         }
-    }
-
-    impl<MODE> StatefulOutputPin for Gpio<$PTXi<ALT1>, Output<MODE>> {
-        fn try_is_set_high(&self) -> Result<bool, Infallible> {
-            Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & (1 << $i) != 0)
+        fn is_set_high(&self) -> bool {
+            unsafe { &*GPIO_PTR }.pdor.read().bits() & (1 << $i) != 0
         }
-
-        fn try_is_set_low(&self) -> Result<bool, Infallible> {
-            Ok(unsafe { &*GPIO_PTR }.pdor.read().bits() & (1 << $i) == 0)
-        }
-    }
-
-    impl<MODE> ToggleableOutputPin for Gpio<$PTXi<ALT1>, Output<MODE>> {
-        type Error = Infallible;
-
-        fn try_toggle(&mut self) -> Result<(), Self::Error> {
+        fn toggle(&self) {
             unsafe { &*GPIO_PTR }.ptor.write(|w| unsafe { w.ptto().bits(1 << $i) });
-            Ok(())
         }
-    }
-
-    impl<MODE> InputPin for Gpio<$PTXi<ALT1>, Input<MODE>> {
-        type Error = Infallible;
-
-        fn try_is_high(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0)
-        }
-
-        fn try_is_low(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) == 0)
-        }
-    }
-
-    impl InputPin for Gpio<$PTXi<ALT1>, Output<OpenDrain>> {
-        type Error = Infallible;
-
-        fn try_is_high(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0)
-        }
-
-        fn try_is_low(&self) -> Result<bool, Self::Error> {
-            Ok(unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) == 0)
+        fn is_high(&self) -> bool {
+            unsafe { &*GPIO_PTR }.pdir.read().bits() & (1 << $i) != 0
         }
     }
 )+
