@@ -8,6 +8,29 @@ pub struct Gpio<PIN, MODE> {
     pin: PIN,
     _mode: PhantomData<MODE>,
 }
+
+/// Pin slew rate, valid in all digital pin muxing modes.
+#[derive(Clone, Copy, Debug)]
+pub enum SlewRate {
+    /// Fast slew rate is configured on the corresponding pin,
+    /// if the pin is configured as a digital output.
+    Fast,
+    /// Slow slew rate is configured on the corresponding pin,
+    /// if the pin is configured as a digital output.
+    Slow,
+}
+
+/// Pin drive strength, valid in all digital pin muxing modes.
+#[derive(Clone, Copy, Debug)]
+pub enum DriveStrength {
+    /// Low drive strength is configured on the corresponding pin,
+    /// if pin is configured as a digital output.
+    Low,
+    /// High drive strength is configured on the corresponding pin,
+    /// if pin is configured as a digital output.
+    High,
+}
+
 /// General-purpose input, for the GPIO function (type state)
 pub struct Input<MODE> {
     _mode: PhantomData<MODE>,
@@ -126,6 +149,47 @@ $(
     };
 }
 
+macro_rules! pfe_impl {
+    ($($PTXi: ident:($pcri: ident, $PORTX: ident, $portx: ident),)+) => {
+$(
+    // not all pins support passive filter
+    impl<MODE> Gpio<crate::port::$portx::$PTXi<ALT1>, Input<MODE>> {
+        /// Enable or disable passive filter for this pin.
+        ///
+        /// Passive filter configuration is valid in all digital pin muxing modes.
+        /// This function needs a mutable borrow of self to change its state register.
+        pub fn set_passive_filter(&mut self, value: bool) {
+            unsafe { &*crate::pac::$PORTX::ptr() }.$pcri.write(|w| match value {
+                false => w.pfe().clear_bit(),
+                true => w.pfe().set_bit(),
+            });
+        }
+    }
+)+
+    };
+}
+
+macro_rules! dse_impl {
+    ($($PTXi: ident:($pcri: ident, $PORTX: ident, $portx: ident),)+) => {
+$(
+    // not all pins support drive strength config
+    impl<MODE> Gpio<crate::port::$portx::$PTXi<ALT1>, Output<MODE>> {
+        /// Configure the drive strength on the corresponding pin.
+        ///
+        /// According to the chip referrence manual, the configuration is only valid
+        /// if the pin is configured as a digital output.
+        /// This function needs a mutable borrow of self to change its state register.
+        pub fn set_drive_strength(&mut self, value: DriveStrength) {
+            unsafe { &*crate::pac::$PORTX::ptr() }.$pcri.write(|w| match value {
+                DriveStrength::Low => w.dse().clear_bit(),
+                DriveStrength::High => w.dse().set_bit(),
+            });
+        }
+    }
+)+
+    }
+}
+
 gpio_impl! { GPIOA, gpioa, porta, [
     PTA0: 0,
     PTA1: 1,
@@ -214,3 +278,20 @@ gpio_impl! { GPIOD, gpiod, portd, [
     PTD10: 10,
     PTD11: 11,
 ] }
+
+pfe_impl! {
+    PTA0: (pcr0, PORTA, porta),
+}
+
+dse_impl! {
+    PTC7: (pcr7, PORTC, portc),
+    PTC8: (pcr8, PORTC, portc),
+    PTC9: (pcr9, PORTC, portc),
+    PTC10: (pcr10, PORTC, portc),
+    PTC11: (pcr11, PORTC, portc),
+    PTC12: (pcr12, PORTC, portc),
+    PTD8: (pcr8, PORTD, portd),
+    PTD9: (pcr9, PORTD, portd),
+    PTD10: (pcr10, PORTD, portd),
+    PTD11: (pcr11, PORTD, portd),
+}
